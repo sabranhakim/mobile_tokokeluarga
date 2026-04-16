@@ -26,6 +26,9 @@ class InventoryProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
+  bool _isSyncing = false;
+  bool get isSyncing => _isSyncing;
+
   // Summary Getters
   int get totalBarang => _barangs.length;
   int get totalSupplier => _suppliers.length;
@@ -46,10 +49,9 @@ class InventoryProvider extends ChangeNotifier {
     Map<String, double> data = {};
 
     if (filter == 'Minggu') {
-      // Last 7 days
       for (int i = 6; i >= 0; i--) {
         final date = now.subtract(Duration(days: i));
-        final label = DateFormat('E').format(date); // Mon, Tue, etc.
+        final label = DateFormat('E').format(date);
         final count = _history.where((e) => 
           e.tglTerima.year == date.year && 
           e.tglTerima.month == date.month && 
@@ -58,7 +60,6 @@ class InventoryProvider extends ChangeNotifier {
         data[label] = count.toDouble();
       }
     } else if (filter == 'Bulan') {
-      // Last 4 weeks or segments of month
       for (int i = 3; i >= 0; i--) {
         final start = now.subtract(Duration(days: (i + 1) * 7));
         final end = now.subtract(Duration(days: i * 7));
@@ -69,7 +70,6 @@ class InventoryProvider extends ChangeNotifier {
         data[label] = count.toDouble();
       }
     } else if (filter == 'Tahun') {
-      // 12 months
       for (int i = 11; i >= 0; i--) {
         final monthDate = DateTime(now.year, now.month - i, 1);
         final label = DateFormat('MMM').format(monthDate);
@@ -80,7 +80,6 @@ class InventoryProvider extends ChangeNotifier {
         data[label] = count.toDouble();
       }
     }
-
     return data;
   }
 
@@ -123,10 +122,36 @@ class InventoryProvider extends ChangeNotifier {
   }
 
   Future<void> syncData() async {
+    if (_isSyncing) return;
+
     var connectivityResult = await (Connectivity().checkConnectivity());
     if (connectivityResult == ConnectivityResult.none) {
+       // Optional: Notify UI about no connection
        return;
     }
-    // TODO: Implement sync logic
+
+    final unsyncedItems = _history.where((e) => e.isSynced == 0).toList();
+    if (unsyncedItems.isEmpty) return;
+
+    _isSyncing = true;
+    notifyListeners();
+
+    int successCount = 0;
+    for (var item in unsyncedItems) {
+      try {
+        await _repository.syncPenerimaan(item);
+        successCount++;
+      } catch (e) {
+        print('Failed to sync item \${item.noTerima}: \$e');
+      }
+    }
+
+    if (successCount > 0) {
+      await _loadHistory();
+      await _updateUnsyncedCount();
+    }
+
+    _isSyncing = false;
+    notifyListeners();
   }
 }
