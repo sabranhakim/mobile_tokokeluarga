@@ -19,6 +19,7 @@ dependencies:
   provider: ^6.1.1         # State management (status sync, loading)
   fl_chart: ^0.70.2        # Untuk grafik/chart
   flutter_secure_storage: ^9.0.0 # Simpan token login
+  flutter_image_compress: ^2.3.0 # Kompresi gambar client-side
 
 dev_dependencies:
   flutter_test:

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../data/models/barang_model.dart';
@@ -8,8 +9,29 @@ import 'package:intl/intl.dart';
 
 class InventoryProvider extends ChangeNotifier {
   final InventoryRepository _repository;
+  StreamSubscription<ConnectivityResult>? _connectivitySubscription;
 
-  InventoryProvider(this._repository);
+  InventoryProvider(this._repository) {
+    _listenToConnectivity();
+  }
+
+  void _listenToConnectivity() {
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
+      ConnectivityResult result,
+    ) {
+      // Jika terhubung ke internet (WiFi atau Mobile Data)
+      if (result != ConnectivityResult.none) {
+        debugPrint('Internet terhubung, mencoba sinkronisasi otomatis...');
+        syncData();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
+  }
 
   List<Supplier> _suppliers = [];
   List<Supplier> get suppliers => _suppliers;
@@ -33,14 +55,17 @@ class InventoryProvider extends ChangeNotifier {
   int get totalBarang => _barangs.length;
   int get totalSupplier => _suppliers.length;
   int get totalPenerimaan => _history.length;
-  
+
   int get penerimaanHariIni {
     final now = DateTime.now();
-    return _history.where((e) => 
-      e.tglTerima.year == now.year && 
-      e.tglTerima.month == now.month && 
-      e.tglTerima.day == now.day
-    ).length;
+    return _history
+        .where(
+          (e) =>
+              e.tglTerima.year == now.year &&
+              e.tglTerima.month == now.month &&
+              e.tglTerima.day == now.day,
+        )
+        .length;
   }
 
   // Chart Logic
@@ -52,31 +77,44 @@ class InventoryProvider extends ChangeNotifier {
       for (int i = 6; i >= 0; i--) {
         final date = now.subtract(Duration(days: i));
         final label = DateFormat('E').format(date);
-        final count = _history.where((e) => 
-          e.tglTerima.year == date.year && 
-          e.tglTerima.month == date.month && 
-          e.tglTerima.day == date.day
-        ).length;
+        final count =
+            _history
+                .where(
+                  (e) =>
+                      e.tglTerima.year == date.year &&
+                      e.tglTerima.month == date.month &&
+                      e.tglTerima.day == date.day,
+                )
+                .length;
         data[label] = count.toDouble();
       }
     } else if (filter == 'Bulan') {
       for (int i = 3; i >= 0; i--) {
         final start = now.subtract(Duration(days: (i + 1) * 7));
         final end = now.subtract(Duration(days: i * 7));
-        final label = 'W\${4-i}';
-        final count = _history.where((e) => 
-          e.tglTerima.isAfter(start) && e.tglTerima.isBefore(end.add(const Duration(days: 1)))
-        ).length;
+        final label = 'W${4 - i}';
+        final count =
+            _history
+                .where(
+                  (e) =>
+                      e.tglTerima.isAfter(start) &&
+                      e.tglTerima.isBefore(end.add(const Duration(days: 1))),
+                )
+                .length;
         data[label] = count.toDouble();
       }
     } else if (filter == 'Tahun') {
       for (int i = 11; i >= 0; i--) {
         final monthDate = DateTime(now.year, now.month - i, 1);
         final label = DateFormat('MMM').format(monthDate);
-        final count = _history.where((e) => 
-          e.tglTerima.year == monthDate.year && 
-          e.tglTerima.month == monthDate.month
-        ).length;
+        final count =
+            _history
+                .where(
+                  (e) =>
+                      e.tglTerima.year == monthDate.year &&
+                      e.tglTerima.month == monthDate.month,
+                )
+                .length;
         data[label] = count.toDouble();
       }
     }
@@ -119,18 +157,21 @@ class InventoryProvider extends ChangeNotifier {
     await _loadHistory();
     await _updateUnsyncedCount();
     notifyListeners();
+
+    // Auto-sync jika online
+    final connectivityResult = await Connectivity().checkConnectivity();
+    if (connectivityResult != ConnectivityResult.none) {
+      syncData();
+    }
   }
 
   Future<void> syncData() async {
     if (_isSyncing) return;
 
-    var connectivityResult = await (Connectivity().checkConnectivity());
-    if (connectivityResult == ConnectivityResult.none) {
-       // Optional: Notify UI about no connection
-       return;
-    }
-
+    // Load data terbaru untuk memastikan list unsynced akurat
+    await _loadHistory();
     final unsyncedItems = _history.where((e) => e.isSynced == 0).toList();
+
     if (unsyncedItems.isEmpty) return;
 
     _isSyncing = true;
@@ -142,7 +183,7 @@ class InventoryProvider extends ChangeNotifier {
         await _repository.syncPenerimaan(item);
         successCount++;
       } catch (e) {
-        print('Failed to sync item \${item.noTerima}: \$e');
+        debugPrint('Gagal sinkronisasi otomatis untuk ${item.noTerima}: $e');
       }
     }
 

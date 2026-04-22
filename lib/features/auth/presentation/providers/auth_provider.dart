@@ -31,10 +31,10 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _apiClient.dio.post('/login', data: {
-        'email': email,
-        'password': password,
-      });
+      final response = await _apiClient.dio.post(
+        '/login',
+        data: {'email': email, 'password': password},
+      );
 
       if (response.statusCode == 200) {
         final token = response.data['token'];
@@ -44,13 +44,13 @@ class AuthProvider extends ChangeNotifier {
         _apiClient.setToken(token);
         _user = UserModel.fromJson(userData);
         _isLoggedIn = true;
-        
+
         _isLoading = false;
         notifyListeners();
         return true;
       }
     } catch (e) {
-      print('Login Error: $e');
+      debugPrint('Login Error: $e');
     }
 
     _isLoading = false;
