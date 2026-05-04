@@ -1,5 +1,5 @@
 class Barang {
-  final int id;
+  final String id;
   final String kodeBarang;
   final String namaBarang;
   final String satuan;
@@ -17,7 +17,7 @@ class Barang {
 
   factory Barang.fromJson(Map<String, dynamic> json) {
     return Barang(
-      id: json['id'],
+      id: json['id'].toString(),
       kodeBarang: json['kode_barang'],
       namaBarang: json['nama_barang'],
       satuan: json['satuan'],

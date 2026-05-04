@@ -1,9 +1,9 @@
 import 'detail_penerimaan_model.dart';
 
 class PenerimaanBarang {
-  final int? id; // ID di database lokal (auto-increment) atau API
+  final String? id; // UUID String
   final String? noTerima;
-  final int supplierId;
+  final String supplierId;
   final String supplierNama; // Optional, untuk mempermudah tampilan offline
   final int? userId;
   final DateTime tglTerima;
@@ -25,9 +25,9 @@ class PenerimaanBarang {
 
   factory PenerimaanBarang.fromJson(Map<String, dynamic> json) {
     return PenerimaanBarang(
-      id: json['id'],
+      id: json['id']?.toString(),
       noTerima: json['no_terima'],
-      supplierId: json['supplier_id'],
+      supplierId: json['supplier_id'].toString(),
       supplierNama: json['supplier_nama'] ?? '',
       userId: json['user_id'],
       tglTerima: DateTime.parse(json['tgl_terima']),

@@ -25,7 +25,7 @@ class DatabaseHelper {
   }
 
   Future _createDB(Database db, int version) async {
-    const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
+    const idType = 'TEXT PRIMARY KEY';
     const textType = 'TEXT NOT NULL';
     const textNullable = 'TEXT';
     const intType = 'INTEGER NOT NULL';
@@ -34,7 +34,7 @@ class DatabaseHelper {
     // Suppliers Cache
     await db.execute('''
       CREATE TABLE suppliers (
-        id INTEGER PRIMARY KEY,
+        id TEXT PRIMARY KEY,
         nama_supplier $textType,
         alamat $textNullable,
         no_telp $textNullable
@@ -44,7 +44,7 @@ class DatabaseHelper {
     // Barangs Cache
     await db.execute('''
       CREATE TABLE barangs (
-        id INTEGER PRIMARY KEY,
+        id TEXT PRIMARY KEY,
         kode_barang $textType,
         nama_barang $textType,
         satuan $textType,
@@ -56,9 +56,9 @@ class DatabaseHelper {
     // Penerimaan Offline
     await db.execute('''
       CREATE TABLE penerimaan_barang (
-        id $idType,
+        id TEXT PRIMARY KEY,
         no_terima $textNullable,
-        supplier_id $intType,
+        supplier_id TEXT NOT NULL,
         supplier_nama $textType,
         user_id $intNullable,
         tgl_terima $textType,
@@ -70,9 +70,9 @@ class DatabaseHelper {
     // Detail Penerimaan Offline
     await db.execute('''
       CREATE TABLE detail_penerimaan (
-        id $idType,
-        penerimaan_barang_id $intType,
-        barang_id $intType,
+        id TEXT PRIMARY KEY,
+        penerimaan_barang_id TEXT NOT NULL,
+        barang_id TEXT NOT NULL,
         barang_nama $textType,
         jumlah $intType,
         FOREIGN KEY (penerimaan_barang_id) REFERENCES penerimaan_barang (id) ON DELETE CASCADE

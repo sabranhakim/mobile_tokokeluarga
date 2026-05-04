@@ -1,7 +1,7 @@
 class DetailPenerimaan {
-  final int? id;
-  final int? penerimaanBarangId;
-  final int barangId;
+  final String? id;
+  final String? penerimaanBarangId;
+  final String barangId;
   final String barangNama; // Optional, mempermudah tampilan offline
   final int jumlah;
 
@@ -15,9 +15,9 @@ class DetailPenerimaan {
 
   factory DetailPenerimaan.fromJson(Map<String, dynamic> json) {
     return DetailPenerimaan(
-      id: json['id'],
-      penerimaanBarangId: json['penerimaan_barang_id'],
-      barangId: json['barang_id'],
+      id: json['id']?.toString(),
+      penerimaanBarangId: json['penerimaan_barang_id']?.toString(),
+      barangId: json['barang_id'].toString(),
       barangNama: json['barang_nama'] ?? '',
       jumlah: json['jumlah'],
     );

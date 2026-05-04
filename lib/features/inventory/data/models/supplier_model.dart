@@ -1,5 +1,5 @@
 class Supplier {
-  final int id;
+  final String id;
   final String namaSupplier;
   final String? alamat;
   final String? noTelp;
@@ -13,7 +13,7 @@ class Supplier {
 
   factory Supplier.fromJson(Map<String, dynamic> json) {
     return Supplier(
-      id: json['id'],
+      id: json['id'].toString(),
       namaSupplier: json['nama_supplier'],
       alamat: json['alamat'],
       noTelp: json['no_telp'],

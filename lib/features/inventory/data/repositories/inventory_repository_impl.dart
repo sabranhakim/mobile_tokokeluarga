@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:uuid/uuid.dart';
 import '../../../../core/api_client.dart';
 import '../../../../core/database_helper.dart';
 import '../models/barang_model.dart';
@@ -15,6 +16,7 @@ import 'package:intl/intl.dart';
 class InventoryRepositoryImpl implements InventoryRepository {
   final ApiClient _apiClient = ApiClient.instance;
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;
+  final _uuid = const Uuid();
 
   @override
   Future<List<Supplier>> getSuppliers() async {
@@ -60,20 +62,26 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<void> savePenerimaanLocal(PenerimaanBarang penerimaan) async {
     final db = await _dbHelper.database;
 
+    // Generate UUID if not exists
+    String receiptId = penerimaan.id ?? _uuid.v4();
+    
     // Generate no_terima if not exists (offline case)
     String noTerima =
         penerimaan.noTerima ??
         'TRX-${DateFormat('yyyyMMddHHmmss').format(DateTime.now())}';
 
     Map<String, dynamic> data = penerimaan.toMap();
+    data['id'] = receiptId;
     data['no_terima'] = noTerima;
 
     await db.transaction((txn) async {
-      final id = await txn.insert('penerimaan_barang', data);
+      await txn.insert('penerimaan_barang', data);
       for (var detail in penerimaan.details) {
+        String detailId = detail.id ?? _uuid.v4();
         await txn.insert('detail_penerimaan', {
           ...detail.toMap(),
-          'penerimaan_barang_id': id,
+          'id': detailId,
+          'penerimaan_barang_id': receiptId,
         });
       }
     });
@@ -100,7 +108,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
     final List<Map<String, dynamic>> localMaps = await db.query(
       'penerimaan_barang',
       where: 'is_synced = 0',
-      orderBy: 'id DESC',
+      orderBy: 'tgl_terima DESC', // Changed from id DESC
     );
 
     for (var map in localMaps) {
@@ -124,7 +132,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
       final List<Map<String, dynamic>> syncedMaps = await db.query(
         'penerimaan_barang',
         where: 'is_synced = 1',
-        orderBy: 'id DESC',
+        orderBy: 'tgl_terima DESC', // Changed from id DESC
       );
       for (var map in syncedMaps) {
         final detailsMap = await db.query(
@@ -157,11 +165,16 @@ class InventoryRepositoryImpl implements InventoryRepository {
       // Prepare details for Laravel (items array)
       List<Map<String, dynamic>> items =
           penerimaan.details
-              .map((d) => {'barang_id': d.barangId, 'jumlah': d.jumlah})
+              .map((d) => {
+                'id': d.id, // Pass UUID of detail
+                'barang_id': d.barangId, 
+                'jumlah': d.jumlah
+              })
               .toList();
 
       // Create FormData for Multipart
       FormData formData = FormData.fromMap({
+        'id': penerimaan.id, // Pass UUID of receipt
         'no_terima': penerimaan.noTerima,
         'supplier_id': penerimaan.supplierId,
         'tgl_terima': DateFormat('yyyy-MM-dd').format(penerimaan.tglTerima),
