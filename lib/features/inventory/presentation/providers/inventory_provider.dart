@@ -122,15 +122,21 @@ class InventoryProvider extends ChangeNotifier {
   }
 
   Future<void> init() async {
+    debugPrint('InventoryProvider: Initializing...');
     _isLoading = true;
     notifyListeners();
 
-    await Future.wait([
-      _loadSuppliers(),
-      _loadBarangs(),
-      _loadHistory(),
-      _updateUnsyncedCount(),
-    ]);
+    try {
+      await Future.wait([
+        _loadSuppliers(),
+        _loadBarangs(),
+        _loadHistory(),
+        _updateUnsyncedCount(),
+      ]);
+      debugPrint('InventoryProvider: Data loaded. Suppliers: ${_suppliers.length}, Barangs: ${_barangs.length}');
+    } catch (e) {
+      debugPrint('InventoryProvider: Error during initialization: $e');
+    }
 
     _isLoading = false;
     notifyListeners();

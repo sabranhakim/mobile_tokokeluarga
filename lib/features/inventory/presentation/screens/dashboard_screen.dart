@@ -68,9 +68,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Grafik Penerimaan',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      const Flexible(
+                        child: Text(
+                          'Grafik Penerimaan',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                       _buildFilterButtons(),
                     ],

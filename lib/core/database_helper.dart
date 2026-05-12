@@ -19,19 +19,28 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // Version bumped to trigger schema reset
       onCreate: _createDB,
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < newVersion) {
+          // Drop tables to resolve datatype mismatch and ensure clean schema
+          await db.execute('DROP TABLE IF EXISTS detail_penerimaan');
+          await db.execute('DROP TABLE IF EXISTS penerimaan_barang');
+          await db.execute('DROP TABLE IF EXISTS barangs');
+          await db.execute('DROP TABLE IF EXISTS suppliers');
+          await _createDB(db, newVersion);
+        }
+      },
     );
   }
 
   Future _createDB(Database db, int version) async {
-    const idType = 'TEXT PRIMARY KEY';
     const textType = 'TEXT NOT NULL';
     const textNullable = 'TEXT';
     const intType = 'INTEGER NOT NULL';
     const intNullable = 'INTEGER';
 
-    // Suppliers Cache
+    // Suppliers Cache - id is UUID (TEXT)
     await db.execute('''
       CREATE TABLE suppliers (
         id TEXT PRIMARY KEY,
@@ -41,7 +50,7 @@ class DatabaseHelper {
       )
     ''');
 
-    // Barangs Cache
+    // Barangs Cache - id is UUID (TEXT)
     await db.execute('''
       CREATE TABLE barangs (
         id TEXT PRIMARY KEY,

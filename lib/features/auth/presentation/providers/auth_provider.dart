@@ -33,12 +33,17 @@ class AuthProvider extends ChangeNotifier {
     try {
       final response = await _apiClient.dio.post(
         '/login',
-        data: {'email': email, 'password': password},
+        data: {
+          'email': email,
+          'password': password,
+          'device_name': 'Mobile Device',
+        },
       );
 
-      if (response.statusCode == 200) {
-        final token = response.data['token'];
-        final userData = response.data['user'];
+      if (response.statusCode == 200 && response.data['status'] == 'success') {
+        final data = response.data['data'];
+        final token = data['token'];
+        final userData = data['user'];
 
         await _storage.write(key: 'auth_token', value: token);
         _apiClient.setToken(token);

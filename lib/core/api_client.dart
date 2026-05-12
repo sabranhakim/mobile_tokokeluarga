@@ -7,7 +7,8 @@ class ApiClient {
   ApiClient._init() {
     dio = Dio(
       BaseOptions(
-        baseUrl: 'http://192.168.1.41:8000/api/v1',
+        // Using current Hotspot IP: 10.38.175.163
+        baseUrl: 'http://10.38.175.163:8000/api/v1',
         connectTimeout: const Duration(seconds: 10),
         receiveTimeout: const Duration(seconds: 10),
         headers: {
@@ -23,6 +24,6 @@ class ApiClient {
   }
 
   void setToken(String token) {
-    dio.options.headers['Authorization'] = 'Bearer \$token';
+    dio.options.headers['Authorization'] = 'Bearer $token';
   }
 }

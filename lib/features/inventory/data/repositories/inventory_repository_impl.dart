@@ -62,13 +62,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<void> savePenerimaanLocal(PenerimaanBarang penerimaan) async {
     final db = await _dbHelper.database;
 
-    // Generate UUID if not exists
     String receiptId = penerimaan.id ?? _uuid.v4();
-    
-    // Generate no_terima if not exists (offline case)
-    String noTerima =
-        penerimaan.noTerima ??
-        'TRX-${DateFormat('yyyyMMddHHmmss').format(DateTime.now())}';
+    String noTerima = penerimaan.noTerima ?? 'TRX-${DateFormat('yyyyMMddHHmmss').format(DateTime.now())}';
 
     Map<String, dynamic> data = penerimaan.toMap();
     data['id'] = receiptId;
@@ -91,7 +86,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<List<PenerimaanBarang>> getPenerimaanHistoryLocal() async {
     List<PenerimaanBarang> allHistory = [];
 
-    // 1. Try to get from API first
     try {
       final response = await _apiClient.dio.get('/penerimaan-barang');
       if (response.statusCode == 200) {
@@ -100,50 +94,33 @@ class InventoryRepositoryImpl implements InventoryRepository {
       }
     } catch (e) {
       developer.log('Fetch History API Error: $e', name: 'InventoryRepository');
-      // If fails, we continue with empty and rely on local
     }
 
-    // 2. Get Unsynced from Local SQLite
     final db = await _dbHelper.database;
-    final List<Map<String, dynamic>> localMaps = await db.query(
-      'penerimaan_barang',
-      where: 'is_synced = 0',
-      orderBy: 'tgl_terima DESC', // Changed from id DESC
-    );
-
-    for (var map in localMaps) {
-      final detailsMap = await db.query(
-        'detail_penerimaan',
-        where: 'penerimaan_barang_id = ?',
-        whereArgs: [map['id']],
-      );
-
-      final details =
-          detailsMap.map((d) => DetailPenerimaan.fromJson(d)).toList();
-      // Add local unsynced items to the top of the list
-      allHistory.insert(
-        0,
-        PenerimaanBarang.fromJson({...map, 'details': details}),
-      );
-    }
-
-    // 3. Get cached synced items from Local (if offline and API failed)
-    if (allHistory.isEmpty) {
-      final List<Map<String, dynamic>> syncedMaps = await db.query(
+    try {
+      final List<Map<String, dynamic>> localMaps = await db.query(
         'penerimaan_barang',
-        where: 'is_synced = 1',
-        orderBy: 'tgl_terima DESC', // Changed from id DESC
+        where: 'is_synced = 0',
+        orderBy: 'tgl_terima DESC',
       );
-      for (var map in syncedMaps) {
+
+      for (var map in localMaps) {
         final detailsMap = await db.query(
           'detail_penerimaan',
           where: 'penerimaan_barang_id = ?',
           whereArgs: [map['id']],
         );
-        final details =
-            detailsMap.map((d) => DetailPenerimaan.fromJson(d)).toList();
-        allHistory.add(PenerimaanBarang.fromJson({...map, 'details': details}));
+
+        final details = detailsMap.map((d) => DetailPenerimaan.fromJson(d)).toList();
+        
+        try {
+          allHistory.insert(0, PenerimaanBarang.fromJson({...map, 'details': details}));
+        } catch (e) {
+          developer.log('Error parsing local item: $e', name: 'InventoryRepository');
+        }
       }
+    } catch (e) {
+      developer.log('Error loading local history: $e', name: 'InventoryRepository');
     }
 
     return allHistory;
@@ -152,9 +129,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
   @override
   Future<int> getUnsyncedCount() async {
     final db = await _dbHelper.database;
-    final result = await db.rawQuery(
-      'SELECT COUNT(*) FROM penerimaan_barang WHERE is_synced = 0',
-    );
+    final result = await db.rawQuery('SELECT COUNT(*) FROM penerimaan_barang WHERE is_synced = 0');
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
@@ -162,74 +137,43 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<void> syncPenerimaan(PenerimaanBarang penerimaan) async {
     XFile? compressedFile;
     try {
-      // Prepare details for Laravel (items array)
-      List<Map<String, dynamic>> items =
-          penerimaan.details
-              .map((d) => {
-                'id': d.id, // Pass UUID of detail
-                'barang_id': d.barangId, 
-                'jumlah': d.jumlah
-              })
-              .toList();
-
-      // Create FormData for Multipart
-      FormData formData = FormData.fromMap({
-        'id': penerimaan.id, // Pass UUID of receipt
+      Map<String, dynamic> formDataMap = {
+        'id': penerimaan.id,
         'no_terima': penerimaan.noTerima,
         'supplier_id': penerimaan.supplierId,
         'tgl_terima': DateFormat('yyyy-MM-dd').format(penerimaan.tglTerima),
-        'items':
-            items, // Dio automatically handles nested lists in FormData since v5+
-      });
+      };
 
-      // Add image if exists with compression
-      if (penerimaan.fotoBonPath != null &&
-          penerimaan.fotoBonPath!.isNotEmpty) {
-        
-        final File file = File(penerimaan.fotoBonPath!);
-        final String targetPath = '${file.parent.path}/compressed_${penerimaan.noTerima ?? DateTime.now().millisecondsSinceEpoch}.jpg';
-
-        // Kompresi gambar client-side sebelum upload
-        compressedFile = await FlutterImageCompress.compressAndGetFile(
-          file.absolute.path,
-          targetPath,
-          quality: 70, // Kompresi ke kualitas 70% untuk menghemat bandwidth
-        );
-
-        formData.files.add(
-          MapEntry(
-            'foto_bon',
-            await MultipartFile.fromFile(
-              compressedFile?.path ?? penerimaan.fotoBonPath!,
-              filename: 'bon.jpg',
-            ),
-          ),
-        );
+      for (int i = 0; i < penerimaan.details.length; i++) {
+        final detail = penerimaan.details[i];
+        formDataMap['items[$i][id]'] = detail.id ?? _uuid.v4();
+        formDataMap['items[$i][barang_id]'] = detail.barangId;
+        formDataMap['items[$i][jumlah]'] = detail.jumlah;
       }
 
-      final response = await _apiClient.dio.post(
-        '/penerimaan-barang',
-        data: formData,
-      );
+      if (penerimaan.fotoBonPath != null && penerimaan.fotoBonPath!.isNotEmpty) {
+        final File file = File(penerimaan.fotoBonPath!);
+        if (await file.exists()) {
+          final String targetPath = '${file.parent.path}/compressed_${penerimaan.noTerima}.jpg';
+          compressedFile = await FlutterImageCompress.compressAndGetFile(
+            file.absolute.path,
+            targetPath,
+            quality: 70,
+          );
+
+          formDataMap['foto_bon'] = await MultipartFile.fromFile(
+            compressedFile?.path ?? penerimaan.fotoBonPath!,
+            filename: 'bon.jpg',
+          );
+        }
+      }
+
+      final response = await _apiClient.dio.post('/penerimaan-barang', data: FormData.fromMap(formDataMap));
 
       if (response.statusCode == 201 || response.statusCode == 200) {
-        // Update local status to synced
         final db = await _dbHelper.database;
-        await db.update(
-          'penerimaan_barang',
-          {'is_synced': 1},
-          where: 'id = ?',
-          whereArgs: [penerimaan.id],
-        );
-        
-        // Hapus file kompresi setelah berhasil sync
-        if (compressedFile != null) {
-          try {
-            await File(compressedFile.path).delete();
-          } catch (e) {
-            developer.log('Cleanup error: $e');
-          }
-        }
+        await db.update('penerimaan_barang', {'is_synced': 1}, where: 'id = ?', whereArgs: [penerimaan.id]);
+        if (compressedFile != null) await File(compressedFile.path).delete();
       }
     } catch (e) {
       developer.log('Sync Error: $e', name: 'InventoryRepository');
