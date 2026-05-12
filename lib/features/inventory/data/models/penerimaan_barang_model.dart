@@ -31,7 +31,8 @@ class PenerimaanBarang {
       supplierNama: json['supplier_nama'] ?? '',
       userId: json['user_id'],
       tglTerima: DateTime.parse(json['tgl_terima']),
-      fotoBonPath: json['foto_bon'], // Jika dari API, ini adalah URL
+      // Handle both local DB field and API field
+      fotoBonPath: json['foto_bon_path'] ?? json['foto_bon'], 
       isSynced: json['is_synced'] ?? 1,
       details: (json['details'] as List?)
               ?.map((d) => DetailPenerimaan.fromJson(d))

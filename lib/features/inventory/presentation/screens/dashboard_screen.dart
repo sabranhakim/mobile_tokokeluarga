@@ -35,6 +35,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       body: Consumer<InventoryProvider>(
         builder: (context, provider, child) {
+          final colorScheme = Theme.of(context).colorScheme;
           if (provider.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -46,21 +47,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _buildSyncStatus(provider.unsyncedCount),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 8),
                   
-                  // Summary Grid
-                  GridView.count(
-                    crossAxisCount: 2,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 1.5,
+                  // Summary List (1 per row to fix overflow)
+                  Column(
                     children: [
-                      _buildSummaryCard('Total Barang', provider.totalBarang.toString(), Icons.inventory_2, Colors.blue),
-                      _buildSummaryCard('Terima Hari Ini', provider.penerimaanHariIni.toString(), Icons.today, Colors.orange),
-                      _buildSummaryCard('Supplier', provider.totalSupplier.toString(), Icons.business, Colors.green),
-                      _buildSummaryCard('Total Penerimaan', provider.totalPenerimaan.toString(), Icons.receipt_long, Colors.purple),
+                      _buildSummaryRow('Total Inventory', provider.totalBarang.toString(), Icons.inventory_2, colorScheme.primary),
+                      const SizedBox(height: 12),
+                      _buildSummaryRow('Received Today', provider.penerimaanHariIni.toString(), Icons.today, colorScheme.secondary),
+                      const SizedBox(height: 12),
+                      _buildSummaryRow('Active Suppliers', provider.totalSupplier.toString(), Icons.business, const Color(0xFF004395)),
+                      const SizedBox(height: 12),
+                      _buildSummaryRow('Total Receipts', provider.totalPenerimaan.toString(), Icons.receipt_long, colorScheme.primary),
                     ],
                   ),
                   
@@ -70,7 +68,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       const Flexible(
                         child: Text(
-                          'Grafik Penerimaan',
+                          'Receiving Trends',
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -83,7 +81,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   // Chart Section
                   _buildChart(provider.getChartData(_selectedFilter)),
                   
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
@@ -94,182 +92,246 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildSyncStatus(int count) {
-    return Card(
-      elevation: 0,
-      color: count > 0 ? Colors.red.shade50 : Colors.green.shade50,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: count > 0 ? Colors.red.shade200 : Colors.green.shade200),
-      ),
-      child: ListTile(
-        leading: Icon(
-          count > 0 ? Icons.sync_problem : Icons.check_circle_outline,
-          color: count > 0 ? Colors.red : Colors.green,
-        ),
-        title: Text(
-          count > 0 ? '\$count Data Belum Sinkron' : 'Semua Data Tersinkron',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: count > 0 ? Colors.red.shade700 : Colors.green.shade700,
-          ),
-        ),
-        trailing: count > 0 
-          ? ElevatedButton(
-              onPressed: () => context.read<InventoryProvider>().syncData(),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-              child: const Text('Sync'),
-            )
-          : null,
-      ),
-    );
-  }
-
-  Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(12),
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 500),
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3)),
+        gradient: count > 0 
+          ? LinearGradient(colors: [colorScheme.errorContainer, colorScheme.onErrorContainer.withOpacity(0.05)])
+          : LinearGradient(colors: [colorScheme.secondaryContainer.withOpacity(0.5), colorScheme.secondaryContainer.withOpacity(0.1)]),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: count > 0 ? colorScheme.error.withOpacity(0.2) : colorScheme.secondary.withOpacity(0.1),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Row(
         children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 8),
-          Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          Text(title, style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: count > 0 ? colorScheme.error : colorScheme.secondary,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              count > 0 ? Icons.sync_problem : Icons.cloud_done_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  count > 0 ? '$count Data Tertunda' : 'Status Sinkron',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: count > 0 ? colorScheme.error : colorScheme.onSecondaryContainer,
+                  ),
+                ),
+                Text(
+                  count > 0 ? 'Segera sinkronkan ke server' : 'Data Anda sudah aman di server',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: count > 0 ? colorScheme.error.withOpacity(0.7) : colorScheme.onSecondaryContainer.withOpacity(0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (count > 0)
+            FilledButton.tonal(
+              onPressed: () => context.read<InventoryProvider>().syncData(),
+              style: FilledButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Sync'),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildFilterButtons() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(8),
+  Widget _buildSummaryRow(String title, String value, IconData icon, Color color) {
+    return Card(
+      elevation: 0,
+      color: color.withOpacity(0.08),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: color.withOpacity(0.1)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: ['Minggu', 'Bulan', 'Tahun'].map((filter) {
-          final isSelected = _selectedFilter == filter;
-          return GestureDetector(
-            onTap: () => setState(() => _selectedFilter = filter),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isSelected ? Colors.blue : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
+                color: color.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Text(
-                filter,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isSelected ? Colors.white : Colors.black,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: color.withOpacity(0.8),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ],
               ),
             ),
-          );
-        }).toList(),
+            Icon(Icons.chevron_right, color: color.withOpacity(0.3)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterButtons() {
+    return SegmentedButton<String>(
+      segments: const [
+        ButtonSegment(value: 'Minggu', label: Text('Minggu'), icon: Icon(Icons.view_week)),
+        ButtonSegment(value: 'Bulan', label: Text('Bulan'), icon: Icon(Icons.calendar_month)),
+      ],
+      selected: {_selectedFilter},
+      onSelectionChanged: (newSelection) {
+        setState(() => _selectedFilter = newSelection.first);
+      },
+      showSelectedIcon: false,
+      style: SegmentedButton.styleFrom(
+        visualDensity: VisualDensity.compact,
       ),
     );
   }
 
   Widget _buildChart(Map<String, double> chartData) {
     if (chartData.isEmpty) {
-      return const SizedBox(
-        height: 200,
-        child: Center(child: Text('Tidak ada data untuk grafik')),
+      return Card(
+        child: Container(
+          height: 200,
+          alignment: Alignment.center,
+          child: const Text('Belum ada data visual'),
+        ),
       );
     }
 
     final keys = chartData.keys.toList();
     final values = chartData.values.toList();
     final maxValue = values.reduce((a, b) => a > b ? a : b);
+    final colorScheme = Theme.of(context).colorScheme;
 
-    return Container(
-      height: 250,
-      padding: const EdgeInsets.fromLTRB(8, 24, 24, 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: BarChart(
-        BarChartData(
-          alignment: BarChartAlignment.spaceAround,
-          maxY: maxValue == 0 ? 5 : maxValue + (maxValue * 0.2),
-          barTouchData: BarTouchData(
-            enabled: true,
-            touchTooltipData: BarTouchTooltipData(
-              getTooltipColor: (_) => Colors.blueGrey,
-              getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                return BarTooltipItem(
-                  '\${keys[groupIndex]}\n',
-                  const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                  children: [
-                    TextSpan(
-                      text: rod.toY.toInt().toString(),
-                      style: const TextStyle(color: Colors.yellow, fontWeight: FontWeight.bold),
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 24, 24, 16),
+        child: SizedBox(
+          height: 250,
+          child: BarChart(
+            BarChartData(
+              alignment: BarChartAlignment.spaceAround,
+              maxY: maxValue == 0 ? 5 : maxValue + (maxValue * 0.2),
+              barTouchData: BarTouchData(
+                enabled: true,
+                touchTooltipData: BarTouchTooltipData(
+                  getTooltipColor: (_) => colorScheme.secondaryContainer,
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    return BarTooltipItem(
+                      '${keys[groupIndex]}\n',
+                      TextStyle(color: colorScheme.onSecondaryContainer, fontWeight: FontWeight.bold),
+                      children: [
+                        TextSpan(
+                          text: rod.toY.toInt().toString(),
+                          style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w900),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              titlesData: FlTitlesData(
+                show: true,
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: (value, meta) {
+                      int index = value.toInt();
+                      if (index >= 0 && index < keys.length) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(
+                            keys[index],
+                            style: TextStyle(fontSize: 10, color: colorScheme.outline, fontWeight: FontWeight.bold),
+                          ),
+                        );
+                      }
+                      return const Text('');
+                    },
+                  ),
+                ),
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 30,
+                    getTitlesWidget: (value, meta) {
+                      return Text(
+                        value.toInt().toString(),
+                        style: TextStyle(fontSize: 10, color: colorScheme.outline),
+                      );
+                    },
+                  ),
+                ),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              ),
+              gridData: FlGridData(
+                show: true, 
+                drawVerticalLine: false,
+                getDrawingHorizontalLine: (value) => FlLine(
+                  color: colorScheme.outlineVariant.withOpacity(0.5),
+                  strokeWidth: 1,
+                ),
+              ),
+              borderData: FlBorderData(show: false),
+              barGroups: List.generate(keys.length, (i) {
+                return BarChartGroupData(
+                  x: i,
+                  barRods: [
+                    BarChartRodData(
+                      toY: values[i],
+                      gradient: LinearGradient(
+                        colors: [colorScheme.primary, colorScheme.tertiary],
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                      ),
+                      width: 20,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
                     ),
                   ],
                 );
-              },
+              }),
             ),
           ),
-          titlesData: FlTitlesData(
-            show: true,
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                getTitlesWidget: (value, meta) {
-                  int index = value.toInt();
-                  if (index >= 0 && index < keys.length) {
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        keys[index],
-                        style: const TextStyle(fontSize: 10, color: Colors.grey),
-                      ),
-                    );
-                  }
-                  return const Text('');
-                },
-              ),
-            ),
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 30,
-                getTitlesWidget: (value, meta) {
-                  return Text(
-                    value.toInt().toString(),
-                    style: const TextStyle(fontSize: 10, color: Colors.grey),
-                  );
-                },
-              ),
-            ),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          ),
-          gridData: const FlGridData(show: true, drawVerticalLine: false),
-          borderData: FlBorderData(show: false),
-          barGroups: List.generate(keys.length, (i) {
-            return BarChartGroupData(
-              x: i,
-              barRods: [
-                BarChartRodData(
-                  toY: values[i],
-                  color: Colors.blue,
-                  width: 16,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                ),
-              ],
-            );
-          }),
         ),
       ),
     );

@@ -21,6 +21,7 @@ dependencies:
   fl_chart: ^0.70.2        # Untuk grafik/chart
   flutter_secure_storage: ^9.0.0 # Simpan token login
   flutter_image_compress: ^2.3.0 # Kompresi gambar client-side
+  dropdown_search: ^5.0.6 # Dropdown dengan pencarian untuk supplier
 
 dev_dependencies:
   flutter_test:

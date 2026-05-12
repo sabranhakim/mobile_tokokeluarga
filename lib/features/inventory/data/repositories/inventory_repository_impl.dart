@@ -59,7 +59,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
   }
 
   @override
-  Future<void> savePenerimaanLocal(PenerimaanBarang penerimaan) async {
+  Future<void> savePenerimaanLocal(PenerimaanBarang penerimaan, {bool forceSynced = false}) async {
     final db = await _dbHelper.database;
 
     String receiptId = penerimaan.id ?? _uuid.v4();
@@ -68,9 +68,19 @@ class InventoryRepositoryImpl implements InventoryRepository {
     Map<String, dynamic> data = penerimaan.toMap();
     data['id'] = receiptId;
     data['no_terima'] = noTerima;
+    
+    // Jika forceSynced true, set status ke 1 (Sukses)
+    if (forceSynced) {
+      data['is_synced'] = 1;
+    }
 
     await db.transaction((txn) async {
-      await txn.insert('penerimaan_barang', data);
+      // Use conflictAlgorithm to replace in case it already exists somehow
+      await txn.insert('penerimaan_barang', data, conflictAlgorithm: ConflictAlgorithm.replace);
+      
+      // Delete old details if replacing
+      await txn.delete('detail_penerimaan', where: 'penerimaan_barang_id = ?', whereArgs: [receiptId]);
+      
       for (var detail in penerimaan.details) {
         String detailId = detail.id ?? _uuid.v4();
         await txn.insert('detail_penerimaan', {
@@ -84,19 +94,23 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
   @override
   Future<List<PenerimaanBarang>> getPenerimaanHistoryLocal() async {
-    List<PenerimaanBarang> allHistory = [];
+    List<PenerimaanBarang> apiHistory = [];
 
+    // 1. Ambil data dari API
     try {
       final response = await _apiClient.dio.get('/penerimaan-barang');
       if (response.statusCode == 200) {
         final List data = response.data['data'];
-        allHistory = data.map((e) => PenerimaanBarang.fromJson(e)).toList();
+        apiHistory = data.map((e) => PenerimaanBarang.fromJson(e)).toList();
+        developer.log('Fetched ${apiHistory.length} items from API', name: 'InventoryRepository');
       }
     } catch (e) {
       developer.log('Fetch History API Error: $e', name: 'InventoryRepository');
     }
 
+    // 2. Ambil data dari Database Lokal yang BELUM sinkron
     final db = await _dbHelper.database;
+    List<PenerimaanBarang> localUnsynced = [];
     try {
       final List<Map<String, dynamic>> localMaps = await db.query(
         'penerimaan_barang',
@@ -112,18 +126,15 @@ class InventoryRepositoryImpl implements InventoryRepository {
         );
 
         final details = detailsMap.map((d) => DetailPenerimaan.fromJson(d)).toList();
-        
-        try {
-          allHistory.insert(0, PenerimaanBarang.fromJson({...map, 'details': details}));
-        } catch (e) {
-          developer.log('Error parsing local item: $e', name: 'InventoryRepository');
-        }
+        localUnsynced.add(PenerimaanBarang.fromJson({...map, 'details': details, 'is_synced': 0}));
       }
+      developer.log('Found ${localUnsynced.length} unsynced items in Local DB', name: 'InventoryRepository');
     } catch (e) {
-      developer.log('Error loading local history: $e', name: 'InventoryRepository');
+      developer.log('Error loading local unsynced history: $e', name: 'InventoryRepository');
     }
 
-    return allHistory;
+    // Gabungkan: Data lokal yang belum sinkron diletakkan paling atas
+    return [...localUnsynced, ...apiHistory];
   }
 
   @override
@@ -168,15 +179,28 @@ class InventoryRepositoryImpl implements InventoryRepository {
         }
       }
 
+      developer.log('Syncing ${penerimaan.noTerima} to server...', name: 'InventoryRepository');
       final response = await _apiClient.dio.post('/penerimaan-barang', data: FormData.fromMap(formDataMap));
 
       if (response.statusCode == 201 || response.statusCode == 200) {
+        developer.log('Sync Success for ${penerimaan.noTerima}', name: 'InventoryRepository');
         final db = await _dbHelper.database;
-        await db.update('penerimaan_barang', {'is_synced': 1}, where: 'id = ?', whereArgs: [penerimaan.id]);
+        int count = await db.update('penerimaan_barang', {'is_synced': 1}, where: 'id = ?', whereArgs: [penerimaan.id]);
+        developer.log('Local DB update count: $count', name: 'InventoryRepository');
         if (compressedFile != null) await File(compressedFile.path).delete();
+      } else {
+        developer.log('Sync Failed for ${penerimaan.noTerima}: ${response.statusCode} - ${response.statusMessage}', name: 'InventoryRepository');
       }
     } catch (e) {
-      developer.log('Sync Error: $e', name: 'InventoryRepository');
+      if (e is DioException) {
+        developer.log('Sync Exception: ${e.response?.statusCode} - ${e.message}', name: 'InventoryRepository');
+        if (e.response?.statusCode == 405) {
+          developer.log('CRITICAL: 405 Method Not Allowed. Check if the URL has trailing slashes or is being redirected.', name: 'InventoryRepository');
+        }
+        developer.log('Response data: ${e.response?.data}', name: 'InventoryRepository');
+      } else {
+        developer.log('Sync Unknown Error: $e', name: 'InventoryRepository');
+      }
       rethrow;
     }
   }

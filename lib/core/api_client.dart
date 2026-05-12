@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 class ApiClient {
   static final ApiClient instance = ApiClient._init();
@@ -7,10 +8,9 @@ class ApiClient {
   ApiClient._init() {
     dio = Dio(
       BaseOptions(
-        // Using current Hotspot IP: 10.38.175.163
         baseUrl: 'http://10.38.175.163:8000/api/v1',
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 10),
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 15),
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -18,9 +18,12 @@ class ApiClient {
       ),
     );
 
-    // TODO: Add Interceptor to attach Sanctum Token from Secure Storage
-    // For now, if you are testing without login, you might need to 
-    // disable 'auth:sanctum' in Laravel or use a hardcoded token.
+    // Logging Interceptor to see network traffic in Debug Console
+    dio.interceptors.add(LogInterceptor(
+      requestBody: true,
+      responseBody: true,
+      logPrint: (obj) => debugPrint('🌐 API_LOG: $obj'),
+    ));
   }
 
   void setToken(String token) {

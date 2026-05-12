@@ -47,20 +47,22 @@ class _MainScreenState extends State<MainScreen> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: _onItemTapped,
+        backgroundColor: Colors.white,
+        indicatorColor: const Color(0xFFE5EEFF),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
+            selectedIcon: Icon(Icons.dashboard, color: Color(0xFF00236F)),
             label: 'Dashboard',
           ),
           NavigationDestination(
-            icon: Icon(Icons.add_circle_outline),
-            selectedIcon: Icon(Icons.add_circle),
-            label: 'Input',
+            icon: Icon(Icons.add_box_outlined),
+            selectedIcon: Icon(Icons.add_box, color: Color(0xFF00236F)),
+            label: 'Receive',
           ),
           NavigationDestination(
             icon: Icon(Icons.history_outlined),
-            selectedIcon: Icon(Icons.history),
+            selectedIcon: Icon(Icons.history, color: Color(0xFF00236F)),
             label: 'History',
           ),
         ],

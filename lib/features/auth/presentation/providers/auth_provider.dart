@@ -17,12 +17,11 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoggedIn => _isLoggedIn;
 
   Future<void> checkLoginStatus() async {
-    final token = await _storage.read(key: 'auth_token');
-    if (token != null) {
-      _apiClient.setToken(token);
-      _isLoggedIn = true;
-      // Optionally fetch user profile
-    }
+    // Menghapus token lama setiap kali aplikasi dimulai agar tidak auto-login
+    await _storage.delete(key: 'auth_token');
+    _isLoggedIn = false;
+    _user = null;
+    debugPrint('🔐 Sesi dibersihkan: Pengguna harus login ulang.');
     notifyListeners();
   }
 
