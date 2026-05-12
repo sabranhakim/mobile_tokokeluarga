@@ -19,9 +19,8 @@ class InventoryProvider extends ChangeNotifier {
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
       ConnectivityResult result,
     ) {
-      // Jika terhubung ke internet (WiFi atau Mobile Data)
       if (result != ConnectivityResult.none) {
-        debugPrint('Internet terhubung ($result), mencoba sinkronisasi otomatis...');
+        debugPrint('🌐 Internet terdeteksi ($result). Mencoba sinkronisasi data pending...');
         syncData();
       }
     });
@@ -122,7 +121,6 @@ class InventoryProvider extends ChangeNotifier {
   }
 
   Future<void> init() async {
-    debugPrint('InventoryProvider: Initializing...');
     _isLoading = true;
     notifyListeners();
 
@@ -133,7 +131,6 @@ class InventoryProvider extends ChangeNotifier {
         _loadHistory(),
         _updateUnsyncedCount(),
       ]);
-      debugPrint('InventoryProvider: Data loaded. Suppliers: ${_suppliers.length}, Barangs: ${_barangs.length}');
     } catch (e) {
       debugPrint('InventoryProvider: Error during initialization: $e');
     }
@@ -163,75 +160,71 @@ class InventoryProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final connectivityResult = await Connectivity().checkConnectivity();
-      bool isOnline = connectivityResult != ConnectivityResult.none;
+      // 1. SELALU simpan ke lokal dulu (Offline-First)
+      debugPrint('💾 Menyimpan data ke database lokal (Status: PENDING)...');
+      await _repository.savePenerimaanLocal(penerimaan, forceSynced: false);
+      
+      // Update UI history agar data langsung muncul di daftar
+      await _loadHistory();
+      await _updateUnsyncedCount();
+      _isLoading = false;
+      notifyListeners();
 
-      if (isOnline) {
-        debugPrint('🌐 Status: ONLINE. Mencoba kirim langsung ke backend...');
-        try {
-          // Kirim ke server
-          await _repository.syncPenerimaan(penerimaan);
-          debugPrint('✅ Berhasil terkirim ke backend.');
-          
-          // Pastikan data juga ada di lokal dengan status SUKSES (untuk riwayat)
-          await _repository.savePenerimaanLocal(penerimaan, forceSynced: true);
-        } catch (e) {
-          debugPrint('⚠️ Gagal kirim langsung (Server error/Timeout). Menyimpan ke lokal untuk nanti: $e');
-          await _repository.savePenerimaanLocal(penerimaan, forceSynced: false);
-        }
-      } else {
-        debugPrint('📴 Status: OFFLINE. Menyimpan ke database lokal...');
-        await _repository.savePenerimaanLocal(penerimaan, forceSynced: false);
-      }
+      // 2. Coba kirim ke backend di background (Tanpa cek koneksi eksplisit)
+      debugPrint('🛰️ Mencoba sinkronisasi background...');
+      _backgroundSyncItem(penerimaan);
+      
     } catch (e) {
-      debugPrint('❌ Error sistem saat submit: $e');
+      debugPrint('❌ Error sistem saat simpan lokal: $e');
+      _isLoading = false;
+      notifyListeners();
     }
+  }
 
-    await _loadHistory();
-    await _updateUnsyncedCount();
-    _isLoading = false;
-    notifyListeners();
+  // Fungsi internal untuk mencoba sync satu item tanpa mengganggu alur UI utama
+  Future<void> _backgroundSyncItem(PenerimaanBarang penerimaan) async {
+    try {
+      // Repository syncPenerimaan sudah memiliki timeout internal di Dio (ApiClient)
+      await _repository.syncPenerimaan(penerimaan);
+      debugPrint('✅ Background Sync Berhasil: ${penerimaan.noTerima}');
+      
+      // Update data lokal jika berhasil
+      await _loadHistory();
+      await _updateUnsyncedCount();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('ℹ️ Background Sync Tertunda (Offline/Server Error): ${penerimaan.noTerima}');
+      // Tidak perlu throw, data sudah aman di lokal dengan status 0
+    }
   }
 
   Future<void> syncData() async {
-    if (_isSyncing) {
-      debugPrint('🔄 Sinkronisasi sedang berjalan, mengabaikan request baru.');
-      return;
-    }
+    if (_isSyncing) return;
 
-    // Load data terbaru untuk memastikan list unsynced akurat
     await _loadHistory();
-    
-    debugPrint('🔍 Memeriksa database lokal...');
-    for(var item in _history) {
-       debugPrint('📄 Data: ${item.noTerima}, Status Sync: ${item.isSynced}');
-    }
-
     final unsyncedItems = _history.where((e) => e.isSynced == 0).toList();
 
     if (unsyncedItems.isEmpty) {
-      debugPrint('✅ Tidak ada data dengan status PENDING (0) di HP.');
+      debugPrint('✅ Tidak ada data pending.');
       return;
     }
 
-    debugPrint('🚀 Memulai sinkronisasi ${unsyncedItems.length} data ke server...');
+    debugPrint('🚀 Sinkronisasi masal dimulai (${unsyncedItems.length} data)...');
     _isSyncing = true;
     notifyListeners();
 
     int successCount = 0;
     for (var item in unsyncedItems) {
       try {
-        debugPrint('📡 Mengirim data: ${item.noTerima}...');
         await _repository.syncPenerimaan(item);
         successCount++;
-        debugPrint('✔️ Berhasil sinkron: ${item.noTerima}');
+        debugPrint('✔️ Berhasil: ${item.noTerima}');
       } catch (e) {
-        debugPrint('❌ Gagal sinkronisasi untuk ${item.noTerima}: $e');
+        debugPrint('❌ Gagal: ${item.noTerima}. Akan dicoba lagi nanti.');
       }
     }
 
     if (successCount > 0) {
-      debugPrint('📊 Berhasil sinkronisasi $successCount data. Memperbarui UI...');
       await _loadHistory();
       await _updateUnsyncedCount();
     }
