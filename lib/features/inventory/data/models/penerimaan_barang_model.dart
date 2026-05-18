@@ -9,6 +9,7 @@ class PenerimaanBarang {
   final DateTime tglTerima;
   final String? fotoBonPath; // Lokasi path foto lokal
   final int isSynced; // 0: Pending, 1: Berhasil
+  final String statusVerifikasi; // 'pending' atau 'verified'
   final List<DetailPenerimaan> details;
 
   PenerimaanBarang({
@@ -20,6 +21,7 @@ class PenerimaanBarang {
     required this.tglTerima,
     this.fotoBonPath,
     this.isSynced = 0,
+    this.statusVerifikasi = 'pending',
     this.details = const [],
   });
 
@@ -34,6 +36,7 @@ class PenerimaanBarang {
       // Handle both local DB field and API field
       fotoBonPath: json['foto_bon_path'] ?? json['foto_bon'], 
       isSynced: json['is_synced'] ?? 1,
+      statusVerifikasi: json['status_verifikasi'] ?? 'pending',
       details: (json['details'] as List?)
               ?.map((d) => DetailPenerimaan.fromJson(d))
               .toList() ??
@@ -51,6 +54,7 @@ class PenerimaanBarang {
       'tgl_terima': tglTerima.toIso8601String(),
       'foto_bon_path': fotoBonPath,
       'is_synced': isSynced,
+      'status_verifikasi': statusVerifikasi,
     };
   }
 }

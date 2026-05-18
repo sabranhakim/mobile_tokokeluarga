@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../../core/api_client.dart';
@@ -16,16 +17,47 @@ class AuthProvider extends ChangeNotifier {
   bool _isLoggedIn = false;
   bool get isLoggedIn => _isLoggedIn;
 
+  AuthProvider() {
+    // Register global unauthorized callback
+    _apiClient.onUnauthorized = () {
+      logout(callServer: false); // Logout without calling server to avoid 401 loop
+    };
+  }
+
   Future<void> checkLoginStatus() async {
-    // Menghapus token lama setiap kali aplikasi dimulai agar tidak auto-login
-    await _storage.delete(key: 'auth_token');
-    _isLoggedIn = false;
-    _user = null;
-    debugPrint('🔐 Sesi dibersihkan: Pengguna harus login ulang.');
+    final token = await _storage.read(key: 'auth_token');
+    
+    if (token != null) {
+      _apiClient.setToken(token);
+      // Optional: Fetch user profile to verify token is still valid
+      try {
+        final response = await _apiClient.dio.get('/me');
+        if (response.statusCode == 200) {
+          _user = UserModel.fromJson(response.data['data']);
+          _isLoggedIn = true;
+          debugPrint('✅ Auto-login berhasil untuk: ${_user?.name}');
+        } else {
+          await logout(callServer: false);
+        }
+      } catch (e) {
+        debugPrint('⚠️ Gagal memverifikasi token saat startup: $e');
+        // If it's a 401, logout will be handled by interceptor
+        // For connection errors, we might want to keep the session
+        if (e is DioException && e.response?.statusCode == 401) {
+           await logout(callServer: false);
+        } else {
+           // For other errors, assume token is still valid but server is offline
+           _isLoggedIn = true; 
+        }
+      }
+    } else {
+      _isLoggedIn = false;
+      _user = null;
+    }
     notifyListeners();
   }
 
-  Future<bool> login(String email, String password) async {
+  Future<String?> login(String email, String password) async {
     _isLoading = true;
     notifyListeners();
 
@@ -51,21 +83,38 @@ class AuthProvider extends ChangeNotifier {
 
         _isLoading = false;
         notifyListeners();
-        return true;
+        return null; // Success
       }
+      return 'Email atau password salah';
     } catch (e) {
-      debugPrint('Login Error: $e');
+      _isLoading = false;
+      notifyListeners();
+      
+      if (e is DioException) {
+        if (e.response?.statusCode == 422) {
+          return e.response?.data?['message'] ?? 'Data tidak valid';
+        }
+        return 'Gagal terhubung ke server. Periksa koneksi Anda.';
+      }
+      return 'Terjadi kesalahan sistem';
     }
-
-    _isLoading = false;
-    notifyListeners();
-    return false;
   }
 
-  Future<void> logout() async {
+  Future<void> logout({bool callServer = true}) async {
+    if (callServer && _isLoggedIn) {
+      try {
+        debugPrint('📡 Mencoba logout dari server...');
+        await _apiClient.dio.post('/logout');
+      } catch (e) {
+        debugPrint('⚠️ Logout server gagal (mungkin token sudah expired): $e');
+      }
+    }
+
     await _storage.delete(key: 'auth_token');
+    _apiClient.clearToken();
     _isLoggedIn = false;
     _user = null;
+    debugPrint('🚪 Logout berhasil, sesi dibersihkan.');
     notifyListeners();
   }
 }

@@ -18,17 +18,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
-      final success = await context.read<AuthProvider>().login(
+      final errorMessage = await context.read<AuthProvider>().login(
             _emailController.text,
             _passwordController.text,
           );
 
-      if (success && mounted) {
+      if (errorMessage == null && mounted) {
         // MainScreen is shown via AuthWrapper automatically
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Login Gagal. Periksa kembali akun Anda.'),
+            content: Text(errorMessage ?? 'Login Gagal. Periksa kembali akun Anda.'),
             backgroundColor: Colors.redAccent,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

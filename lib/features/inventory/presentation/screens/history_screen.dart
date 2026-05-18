@@ -70,6 +70,37 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     itemBuilder: (context, index) {
                       final item = filteredHistory[index];
                       final isSynced = item.isSynced == 1;
+                      final isVerified = item.statusVerifikasi == 'verified';
+
+                      Color badgeBgColor;
+                      Color badgeTextColor;
+                      String statusText;
+                      IconData statusIcon;
+                      Color iconColor;
+                      Color iconBgColor;
+
+                      if (!isSynced) {
+                        badgeBgColor = colorScheme.errorContainer;
+                        badgeTextColor = colorScheme.error;
+                        statusText = 'PENDING SYNC';
+                        statusIcon = Icons.sync_problem_rounded;
+                        iconColor = colorScheme.error;
+                        iconBgColor = colorScheme.errorContainer;
+                      } else if (isVerified) {
+                        badgeBgColor = const Color(0xFFE5FFEA);
+                        badgeTextColor = const Color(0xFF00851D);
+                        statusText = 'TERVERIFIKASI';
+                        statusIcon = Icons.verified_rounded;
+                        iconColor = const Color(0xFF00851D);
+                        iconBgColor = const Color(0xFFE5FFEA);
+                      } else {
+                        badgeBgColor = const Color(0xFFE5EEFF);
+                        badgeTextColor = const Color(0xFF00236F);
+                        statusText = 'MENUNGGU VERIFIKASI';
+                        statusIcon = Icons.cloud_done_outlined;
+                        iconColor = const Color(0xFF0058BE);
+                        iconBgColor = colorScheme.secondaryContainer;
+                      }
 
                       return Card(
                         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -85,14 +116,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   width: 48,
                                   height: 48,
                                   decoration: BoxDecoration(
-                                    color: isSynced 
-                                        ? colorScheme.secondaryContainer 
-                                        : colorScheme.errorContainer,
+                                    color: iconBgColor,
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Icon(
-                                    isSynced ? Icons.cloud_done_outlined : Icons.sync_problem_rounded,
-                                    color: isSynced ? const Color(0xFF0058BE) : colorScheme.error,
+                                    statusIcon,
+                                    color: iconColor,
                                   ),
                                 ),
                                 const SizedBox(width: 16),
@@ -123,17 +152,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: isSynced 
-                                            ? const Color(0xFFE5EEFF) 
-                                            : colorScheme.errorContainer,
+                                        color: badgeBgColor,
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Text(
-                                        isSynced ? 'SYNCED' : 'PENDING',
+                                        statusText,
                                         style: TextStyle(
-                                          fontSize: 10,
+                                          fontSize: 9,
                                           fontWeight: FontWeight.bold,
-                                          color: isSynced ? const Color(0xFF00236F) : colorScheme.error,
+                                          color: badgeTextColor,
                                         ),
                                       ),
                                     ),
