@@ -9,7 +9,7 @@ import 'package:intl/intl.dart';
 
 class InventoryProvider extends ChangeNotifier {
   final InventoryRepository _repository;
-  StreamSubscription<ConnectivityResult>? _connectivitySubscription;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
   InventoryProvider(this._repository) {
     _listenToConnectivity();
@@ -17,10 +17,10 @@ class InventoryProvider extends ChangeNotifier {
 
   void _listenToConnectivity() {
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
-      ConnectivityResult result,
+      List<ConnectivityResult> results,
     ) {
-      if (result != ConnectivityResult.none) {
-        debugPrint('🌐 Internet terdeteksi ($result). Mencoba sinkronisasi data pending...');
+      if (results.isNotEmpty && !results.contains(ConnectivityResult.none)) {
+        debugPrint('🌐 Internet terdeteksi ($results). Mencoba sinkronisasi data pending...');
         syncData();
       }
     });

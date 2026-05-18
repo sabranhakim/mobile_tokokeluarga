@@ -14,7 +14,7 @@ dependencies:
   path_provider: ^2.1.2    # Mengatur lokasi penyimpanan foto
   image_picker: ^1.0.7     # Mengambil foto bon via Kamera
   camera: ^0.11.0+1        # Untuk UI kamera kustom dengan grid
-  connectivity_plus: ^5.0.2 # Mendeteksi status internet
+  connectivity_plus: ^7.1.1 # Mendeteksi status internet
   intl: ^0.19.0            # Formatter tanggal & mata uang
   provider: ^6.1.1         # State management (status sync, loading)
   uuid: ^4.3.3             # Generate unique IDs for offline records
