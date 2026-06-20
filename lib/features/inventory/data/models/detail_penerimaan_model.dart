@@ -14,11 +14,13 @@ class DetailPenerimaan {
   });
 
   factory DetailPenerimaan.fromJson(Map<String, dynamic> json) {
+    final barang = json['barang'] as Map<String, dynamic>?;
+
     return DetailPenerimaan(
       id: json['id']?.toString(),
       penerimaanBarangId: json['penerimaan_barang_id']?.toString(),
       barangId: json['barang_id'].toString(),
-      barangNama: json['barang_nama'] ?? '',
+      barangNama: json['barang_nama'] ?? barang?['nama_barang'] ?? '',
       jumlah: json['jumlah'],
     );
   }

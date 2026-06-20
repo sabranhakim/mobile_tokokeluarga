@@ -40,9 +40,10 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
     final dateStr = DateFormat('yyyyMMdd').format(DateTime.now());
     final randomHex = _generateRandomHex(6);
     _noTerimaController.text = 'TRM-$dateStr$randomHex';
-    
+    _noTerimaController.addListener(_refreshDuplicateIndicator);
+
     _addItemRow();
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<InventoryProvider>().init();
     });
@@ -51,8 +52,25 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
   String _generateRandomHex(int length) {
     const chars = '0123456789ABCDEF';
     final random = Random();
-    return String.fromCharCodes(Iterable.generate(
-        length, (_) => chars.codeUnitAt(random.nextInt(chars.length))));
+    return String.fromCharCodes(
+      Iterable.generate(
+        length,
+        (_) => chars.codeUnitAt(random.nextInt(chars.length)),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _noTerimaController.removeListener(_refreshDuplicateIndicator);
+    _noTerimaController.dispose();
+    super.dispose();
+  }
+
+  void _refreshDuplicateIndicator() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _addItemRow() {
@@ -67,6 +85,115 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
         _selectedItems.removeAt(index);
       }
     });
+  }
+
+  bool _isSameDate(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  List<DetailPenerimaan> _currentValidDetails() {
+    return _selectedItems.where((e) => e.barang != null && e.jumlah > 0).map((
+      e,
+    ) {
+      return DetailPenerimaan(
+        barangId: e.barang!.id,
+        barangNama: e.barang!.namaBarang,
+        jumlah: e.jumlah,
+      );
+    }).toList();
+  }
+
+  List<String> _findDuplicateWarnings({
+    required List<PenerimaanBarang> history,
+    required List<DetailPenerimaan> details,
+  }) {
+    final warnings = <String>[];
+    final noTerima = _noTerimaController.text.trim().toLowerCase();
+
+    if (noTerima.isNotEmpty) {
+      final hasSameNoTerima = history.any(
+        (item) => (item.noTerima ?? '').trim().toLowerCase() == noTerima,
+      );
+      if (hasSameNoTerima) {
+        warnings.add('Nomor terima sudah pernah digunakan.');
+      }
+    }
+
+    final itemCounts = <String, int>{};
+    for (final detail in details) {
+      itemCounts[detail.barangId] = (itemCounts[detail.barangId] ?? 0) + 1;
+    }
+    if (itemCounts.values.any((count) => count > 1)) {
+      warnings.add('Ada barang yang dipilih lebih dari sekali di form ini.');
+    }
+
+    final supplier = _selectedSupplier;
+    if (supplier != null && details.isNotEmpty) {
+      final selectedBarangIds =
+          details.map((detail) => detail.barangId).toSet();
+      final hasSameSupplierDateBarang = history.any((item) {
+        if (item.supplierId != supplier.id ||
+            !_isSameDate(item.tglTerima, _selectedDate)) {
+          return false;
+        }
+        return item.details.any(
+          (detail) => selectedBarangIds.contains(detail.barangId),
+        );
+      });
+
+      if (hasSameSupplierDateBarang) {
+        warnings.add(
+          'Supplier, tanggal, dan minimal satu barang sama dengan riwayat yang sudah ada.',
+        );
+      }
+    }
+
+    return warnings;
+  }
+
+  Future<bool> _confirmDuplicateRisk(List<String> warnings) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Potensi Input Ganda'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Data ini mirip dengan riwayat yang sudah ada:'),
+              const SizedBox(height: 12),
+              ...warnings.map(
+                (warning) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('• '),
+                      Expanded(child: Text(warning)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text('Periksa kembali sebelum menyimpan.'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Periksa Lagi'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Tetap Simpan'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result ?? false;
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -106,13 +233,7 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
       return;
     }
 
-    final details = _selectedItems.where((e) => e.barang != null && e.jumlah > 0).map((e) {
-      return DetailPenerimaan(
-        barangId: e.barang!.id,
-        barangNama: e.barang!.namaBarang,
-        jumlah: e.jumlah,
-      );
-    }).toList();
+    final details = _currentValidDetails();
 
     if (details.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -124,6 +245,19 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
       return;
     }
 
+    final provider = context.read<InventoryProvider>();
+    final duplicateWarnings = _findDuplicateWarnings(
+      history: provider.history,
+      details: details,
+    );
+
+    if (duplicateWarnings.isNotEmpty) {
+      final shouldContinue = await _confirmDuplicateRisk(duplicateWarnings);
+      if (!shouldContinue) {
+        return;
+      }
+    }
+
     final penerimaan = PenerimaanBarang(
       noTerima: _noTerimaController.text,
       supplierId: _selectedSupplier!.id,
@@ -133,8 +267,8 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
       details: details,
     );
 
-    await context.read<InventoryProvider>().submitPenerimaan(penerimaan);
-    
+    await provider.submitPenerimaan(penerimaan);
+
     if (mounted) {
       Navigator.popUntil(context, (route) => route.isFirst);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -195,7 +329,9 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
             children: [
               // Photo Preview Area
               GestureDetector(
-                onTap: () => Navigator.pop(context), // Go back to re-take if needed
+                onTap:
+                    () =>
+                        Navigator.pop(context), // Go back to re-take if needed
                 child: Container(
                   height: 240,
                   decoration: BoxDecoration(
@@ -207,10 +343,7 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      Image.file(
-                        File(widget.photoPath),
-                        fit: BoxFit.cover,
-                      ),
+                      Image.file(File(widget.photoPath), fit: BoxFit.cover),
                       Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -218,7 +351,7 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                             end: Alignment.bottomCenter,
                             colors: [
                               Colors.transparent,
-                              Colors.black.withOpacity(0.5),
+                              Colors.black.withValues(alpha: 0.5),
                             ],
                           ),
                         ),
@@ -235,7 +368,11 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                                 color: Color(0xFFEFF4FF),
                                 shape: BoxShape.circle,
                               ),
-                              child: Icon(Icons.add_a_photo, color: colorPrimary, size: 24),
+                              child: Icon(
+                                Icons.add_a_photo,
+                                color: colorPrimary,
+                                size: 24,
+                              ),
                             ),
                             const SizedBox(height: 8),
                             const Text(
@@ -249,7 +386,7 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                             Text(
                               'Tap to retake photo',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.8),
+                                color: Colors.white.withValues(alpha: 0.8),
                                 fontSize: 12,
                               ),
                             ),
@@ -261,7 +398,7 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              
+
               // Basic Info Section
               Container(
                 padding: const EdgeInsets.all(24),
@@ -279,7 +416,11 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                         controller: _noTerimaController,
                         style: const TextStyle(fontWeight: FontWeight.w500),
                         decoration: _inputDecoration('e.g. GR-99238'),
-                        validator: (val) => val == null || val.isEmpty ? 'Wajib diisi' : null,
+                        validator:
+                            (val) =>
+                                val == null || val.isEmpty
+                                    ? 'Wajib diisi'
+                                    : null,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -289,7 +430,11 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                         onTap: () => _selectDate(context),
                         child: InputDecorator(
                           decoration: _inputDecoration('').copyWith(
-                            suffixIcon: Icon(Icons.calendar_today, size: 20, color: colorOnSurfaceVariant),
+                            suffixIcon: Icon(
+                              Icons.calendar_today,
+                              size: 20,
+                              color: colorOnSurfaceVariant,
+                            ),
                           ),
                           child: Text(
                             DateFormat('yyyy-MM-dd').format(_selectedDate),
@@ -305,28 +450,43 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                         decoration: BoxDecoration(
                           color: const Color(0xFFF8F9FF),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: colorOutlineVariant, width: 2),
+                          border: Border.all(
+                            color: colorOutlineVariant,
+                            width: 2,
+                          ),
                         ),
                         child: DropdownSearch<Supplier>(
                           items: provider.suppliers,
                           selectedItem: _selectedSupplier,
                           compareFn: (a, b) => a.id == b.id,
-                          onChanged: (val) => setState(() => _selectedSupplier = val),
-                          filterFn: (item, filter) => 
-                            item.namaSupplier.toLowerCase().contains(filter.toLowerCase()),
+                          onChanged:
+                              (val) => setState(() => _selectedSupplier = val),
+                          filterFn:
+                              (item, filter) => item.namaSupplier
+                                  .toLowerCase()
+                                  .contains(filter.toLowerCase()),
                           dropdownBuilder: (context, selectedItem) {
                             return Text(
                               selectedItem?.namaSupplier ?? 'Select Supplier',
                               style: TextStyle(
                                 fontSize: 14,
-                                fontWeight: selectedItem == null ? FontWeight.normal : FontWeight.w500,
-                                color: selectedItem == null ? colorOutlineVariant : colorPrimary,
+                                fontWeight:
+                                    selectedItem == null
+                                        ? FontWeight.normal
+                                        : FontWeight.w500,
+                                color:
+                                    selectedItem == null
+                                        ? colorOutlineVariant
+                                        : colorPrimary,
                               ),
                             );
                           },
                           dropdownDecoratorProps: const DropDownDecoratorProps(
                             dropdownSearchDecoration: InputDecoration(
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 4,
+                              ),
                               border: InputBorder.none,
                               isDense: true,
                             ),
@@ -341,20 +501,32 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                               decoration: InputDecoration(
                                 hintText: 'Cari nama supplier...',
                                 prefixIcon: const Icon(Icons.search_rounded),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(color: colorOutlineVariant),
+                                  borderSide: BorderSide(
+                                    color: colorOutlineVariant,
+                                  ),
                                 ),
                               ),
                             ),
-                            itemBuilder: (context, item, isSelected) => Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              child: Text(
-                                item.namaSupplier,
-                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                              ),
-                            ),
+                            itemBuilder:
+                                (context, item, isSelected) => Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  child: Text(
+                                    item.namaSupplier,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
                           ),
                         ),
                       ),
@@ -363,7 +535,7 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              
+
               // Received Items Section
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -373,20 +545,27 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFEFF4FF),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       '${_selectedItems.length} Items Total',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: colorOnSurfaceVariant),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: colorOnSurfaceVariant,
+                      ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
-              
+
               // Items Table Look
               Container(
                 decoration: BoxDecoration(
@@ -430,25 +609,33 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                       ),
                     ),
                     const Divider(height: 1, color: Color(0xFFC5C5D3)),
-                    
+
                     // Table Body
                     ListView.separated(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: _selectedItems.length,
-                      separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFC5C5D3)),
+                      separatorBuilder:
+                          (context, index) => const Divider(
+                            height: 1,
+                            color: Color(0xFFC5C5D3),
+                          ),
                       itemBuilder: (context, index) {
                         return _buildItemTableRow(index, provider.barangs);
                       },
                     ),
-                    
+
                     // Add Row Button
                     Container(
                       color: const Color(0xFFF8F9FF),
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: TextButton.icon(
                         onPressed: _addItemRow,
-                        icon: Icon(Icons.library_add, size: 18, color: colorPrimary),
+                        icon: Icon(
+                          Icons.library_add,
+                          size: 18,
+                          color: colorPrimary,
+                        ),
                         label: Text(
                           'Add Row',
                           style: TextStyle(
@@ -464,7 +651,9 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
               ),
 
               const SizedBox(height: 32),
-              
+              _buildDuplicateRiskIndicator(provider),
+              const SizedBox(height: 16),
+
               // Actions
               ElevatedButton.icon(
                 onPressed: _submit,
@@ -474,10 +663,15 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                   backgroundColor: colorPrimary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                   elevation: 4,
-                  shadowColor: colorPrimary.withOpacity(0.3),
+                  shadowColor: colorPrimary.withValues(alpha: 0.3),
                 ),
               ),
               const SizedBox(height: 12),
@@ -486,10 +680,15 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   side: BorderSide(color: colorOutlineVariant, width: 2),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                   foregroundColor: colorOnSurfaceVariant,
                 ),
-                child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
               const SizedBox(height: 40),
             ],
@@ -536,12 +735,69 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
     );
   }
 
+  Widget _buildDuplicateRiskIndicator(InventoryProvider provider) {
+    final warnings = _findDuplicateWarnings(
+      history: provider.history,
+      details: _currentValidDetails(),
+    );
+
+    if (warnings.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7E0),
+        border: Border.all(color: const Color(0xFFFFC857)),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: Color(0xFF9A6700)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Potensi input ganda',
+                  style: TextStyle(
+                    color: Color(0xFF6F4E00),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                ...warnings.map(
+                  (warning) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      warning,
+                      style: const TextStyle(
+                        color: Color(0xFF6F4E00),
+                        fontSize: 12,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildItemTableRow(int index, List<Barang> availableBarangs) {
     // Find the current barang in the available list to ensure exact reference match
     Barang? currentBarang;
     if (_selectedItems[index].barang != null) {
       try {
-        currentBarang = availableBarangs.firstWhere((b) => b.id == _selectedItems[index].barang!.id);
+        currentBarang = availableBarangs.firstWhere(
+          (b) => b.id == _selectedItems[index].barang!.id,
+        );
       } catch (_) {
         currentBarang = null;
       }
@@ -549,7 +805,10 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      color: index % 2 == 1 ? const Color(0xFFF8F9FF).withOpacity(0.5) : Colors.white,
+      color:
+          index % 2 == 1
+              ? const Color(0xFFF8F9FF).withValues(alpha: 0.5)
+              : Colors.white,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -560,35 +819,49 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFFF8F9FF),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: colorOutlineVariant.withOpacity(0.5)),
+                border: Border.all(
+                  color: colorOutlineVariant.withValues(alpha: 0.5),
+                ),
               ),
               child: DropdownSearch<Barang>(
                 items: availableBarangs,
                 selectedItem: currentBarang,
                 compareFn: (a, b) => a.id == b.id,
-                filterFn: (item, filter) => 
-                  item.kodeBarang.toLowerCase().contains(filter.toLowerCase()) || 
-                  item.namaBarang.toLowerCase().contains(filter.toLowerCase()),
-                onChanged: (val) => setState(() => _selectedItems[index].barang = val),
+                filterFn:
+                    (item, filter) =>
+                        item.kodeBarang.toLowerCase().contains(
+                          filter.toLowerCase(),
+                        ) ||
+                        item.namaBarang.toLowerCase().contains(
+                          filter.toLowerCase(),
+                        ),
+                onChanged:
+                    (val) => setState(() => _selectedItems[index].barang = val),
                 dropdownBuilder: (context, selectedItem) {
                   if (selectedItem == null) {
-                    return const Text('Pilih SKU / Nama Barang', 
-                      style: TextStyle(fontSize: 15, fontStyle: FontStyle.italic, color: Colors.grey));
+                    return const Text(
+                      'Pilih SKU / Nama Barang',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontStyle: FontStyle.italic,
+                        color: Colors.grey,
+                      ),
+                    );
                   }
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        selectedItem.kodeBarang, 
+                        selectedItem.kodeBarang,
                         style: TextStyle(
-                          color: colorPrimary, 
+                          color: colorPrimary,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
                       ),
                       Text(
-                        selectedItem.namaBarang, 
+                        selectedItem.namaBarang,
                         style: TextStyle(
                           color: colorOnSurfaceVariant,
                           fontSize: 13,
@@ -601,7 +874,10 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                 },
                 dropdownDecoratorProps: DropDownDecoratorProps(
                   dropdownSearchDecoration: const InputDecoration(
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     border: InputBorder.none,
                     errorStyle: TextStyle(height: 0),
                     isDense: true,
@@ -617,7 +893,10 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                     decoration: InputDecoration(
                       hintText: 'Cari baranng',
                       prefixIcon: const Icon(Icons.search_rounded),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide: BorderSide(color: colorOutlineVariant),
@@ -625,34 +904,38 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                     ),
                   ),
                   constraints: const BoxConstraints(maxHeight: 400),
-                  itemBuilder: (context, item, isSelected) => Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          item.kodeBarang, 
-                          style: TextStyle(
-                            color: colorPrimary, 
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
+                  itemBuilder:
+                      (context, item, isSelected) => Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          item.namaBarang, 
-                          style: TextStyle(
-                            color: colorOnSurfaceVariant,
-                            fontSize: 13,
-                            height: 1.2,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 2,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              item.kodeBarang,
+                              style: TextStyle(
+                                color: colorPrimary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              item.namaBarang,
+                              style: TextStyle(
+                                color: colorOnSurfaceVariant,
+                                fontSize: 13,
+                                height: 1.2,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
                 ),
                 validator: (val) => val == null ? '' : null,
               ),
@@ -664,29 +947,50 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
           SizedBox(
             width: 75,
             child: TextFormField(
-              initialValue: _selectedItems[index].jumlah > 0 ? _selectedItems[index].jumlah.toString() : '',
+              initialValue:
+                  _selectedItems[index].jumlah > 0
+                      ? _selectedItems[index].jumlah.toString()
+                      : '',
               keyboardType: TextInputType.number,
-              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF00236F)),
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 18,
+                color: Color(0xFF00236F),
+              ),
               textAlign: TextAlign.center,
               decoration: InputDecoration(
                 hintText: 'Qty',
-                hintStyle: TextStyle(fontSize: 13, color: colorPrimary.withOpacity(0.4), fontWeight: FontWeight.normal),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+                hintStyle: TextStyle(
+                  fontSize: 13,
+                  color: colorPrimary.withValues(alpha: 0.4),
+                  fontWeight: FontWeight.normal,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 12,
+                ),
                 isDense: true,
                 errorStyle: const TextStyle(height: 0),
                 fillColor: Colors.white,
                 filled: true,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: colorPrimary.withOpacity(0.3)),
+                  borderSide: BorderSide(
+                    color: colorPrimary.withValues(alpha: 0.3),
+                  ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide(color: colorOutlineVariant),
                 ),
               ),
-              onChanged: (val) => _selectedItems[index].jumlah = int.tryParse(val) ?? 0,
-              validator: (val) => (int.tryParse(val ?? '') ?? 0) <= 0 ? '' : null,
+              onChanged: (val) {
+                setState(() {
+                  _selectedItems[index].jumlah = int.tryParse(val) ?? 0;
+                });
+              },
+              validator:
+                  (val) => (int.tryParse(val ?? '') ?? 0) <= 0 ? '' : null,
             ),
           ),
           const SizedBox(width: 4),
@@ -694,7 +998,11 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
           // Delete
           IconButton(
             onPressed: () => _removeItemRow(index),
-            icon: Icon(Icons.delete_outline_rounded, color: colorError.withOpacity(0.6), size: 24),
+            icon: Icon(
+              Icons.delete_outline_rounded,
+              color: colorError.withValues(alpha: 0.6),
+              size: 24,
+            ),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
@@ -708,4 +1016,3 @@ class DetailPenerimaanTemp {
   Barang? barang;
   int jumlah = 0;
 }
-

@@ -11,7 +11,14 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  String _selectedFilter = 'Semua';
+  String _selectedFilter = 'Hari Ini';
+
+  bool _isToday(DateTime date) {
+    final now = DateTime.now();
+    return date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,37 +33,57 @@ class _HistoryScreenState extends State<HistoryScreen> {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
-              children: ['Semua', 'Sudah Sync', 'Belum Sync'].map((filter) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8.0),
-                  child: ChoiceChip(
-                    label: Text(filter),
-                    selected: _selectedFilter == filter,
-                    onSelected: (selected) {
-                      if (selected) setState(() => _selectedFilter = filter);
-                    },
-                  ),
-                );
-              }).toList(),
+              children:
+                  ['Hari Ini', 'Semua', 'Sudah Sync', 'Belum Sync'].map((
+                    filter,
+                  ) {
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: ChoiceChip(
+                        label: Text(filter),
+                        selected: _selectedFilter == filter,
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() => _selectedFilter = filter);
+                          }
+                        },
+                      ),
+                    );
+                  }).toList(),
             ),
           ),
           Expanded(
             child: Consumer<InventoryProvider>(
               builder: (context, provider, child) {
-                final filteredHistory = provider.history.where((item) {
-                  if (_selectedFilter == 'Sudah Sync') return item.isSynced == 1;
-                  if (_selectedFilter == 'Belum Sync') return item.isSynced == 0;
-                  return true;
-                }).toList();
+                final filteredHistory =
+                    provider.history.where((item) {
+                      if (_selectedFilter == 'Hari Ini') {
+                        return _isToday(item.tglTerima);
+                      }
+                      if (_selectedFilter == 'Sudah Sync') {
+                        return item.isSynced == 1;
+                      }
+                      if (_selectedFilter == 'Belum Sync') {
+                        return item.isSynced == 0;
+                      }
+                      return true;
+                    }).toList();
 
                 if (filteredHistory.isEmpty) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.history_toggle_off_rounded, size: 64, color: colorScheme.outline.withOpacity(0.5)),
+                        Icon(
+                          Icons.history_toggle_off_rounded,
+                          size: 64,
+                          color: colorScheme.outline.withValues(alpha: 0.5),
+                        ),
                         const SizedBox(height: 16),
-                        Text('Tidak ada riwayat ditemukan', style: TextStyle(color: colorScheme.outline)),
+                        Text(
+                          'Tidak ada riwayat ditemukan',
+                          style: TextStyle(color: colorScheme.outline),
+                        ),
                       ],
                     ),
                   );
@@ -103,7 +130,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       }
 
                       return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
                         child: InkWell(
                           onTap: () {
                             // Detail view logic could go here
@@ -119,24 +149,31 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                     color: iconBgColor,
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: Icon(
-                                    statusIcon,
-                                    color: iconColor,
-                                  ),
+                                  child: Icon(statusIcon, color: iconColor),
                                 ),
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         item.supplierNama,
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: colorScheme.primary),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                          color: colorScheme.primary,
+                                        ),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        DateFormat('dd MMM yyyy • HH:mm').format(item.tglTerima),
-                                        style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
+                                        DateFormat(
+                                          'dd MMM yyyy • HH:mm',
+                                        ).format(item.tglTerima),
+                                        style: TextStyle(
+                                          color: colorScheme.onSurfaceVariant,
+                                          fontSize: 13,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -146,11 +183,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   children: [
                                     Text(
                                       '${item.details.length} Item',
-                                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: colorScheme.onSurface),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 15,
+                                        color: colorScheme.onSurface,
+                                      ),
                                     ),
                                     const SizedBox(height: 4),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: badgeBgColor,
                                         borderRadius: BorderRadius.circular(6),

@@ -26,21 +26,21 @@ class PenerimaanBarang {
   });
 
   factory PenerimaanBarang.fromJson(Map<String, dynamic> json) {
+    final supplier = json['supplier'] as Map<String, dynamic>?;
+    final details = (json['details'] ?? json['detail_penerimaans']) as List?;
+
     return PenerimaanBarang(
       id: json['id']?.toString(),
       noTerima: json['no_terima'],
       supplierId: json['supplier_id'].toString(),
-      supplierNama: json['supplier_nama'] ?? '',
+      supplierNama: json['supplier_nama'] ?? supplier?['nama_supplier'] ?? '',
       userId: json['user_id'],
       tglTerima: DateTime.parse(json['tgl_terima']),
       // Handle both local DB field and API field
-      fotoBonPath: json['foto_bon_path'] ?? json['foto_bon'], 
+      fotoBonPath: json['foto_bon_path'] ?? json['foto_bon'],
       isSynced: json['is_synced'] ?? 1,
       statusVerifikasi: json['status_verifikasi'] ?? 'pending',
-      details: (json['details'] as List?)
-              ?.map((d) => DetailPenerimaan.fromJson(d))
-              .toList() ??
-          [],
+      details: details?.map((d) => DetailPenerimaan.fromJson(d)).toList() ?? [],
     );
   }
 

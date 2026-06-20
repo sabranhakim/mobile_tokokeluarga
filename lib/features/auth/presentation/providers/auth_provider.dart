@@ -31,7 +31,7 @@ class AuthProvider extends ChangeNotifier {
       _apiClient.setToken(token);
       // Optional: Fetch user profile to verify token is still valid
       try {
-        final response = await _apiClient.dio.get('/me');
+        final response = await _apiClient.dio.get('/user');
         if (response.statusCode == 200) {
           _user = UserModel.fromJson(response.data['data']);
           _isLoggedIn = true;
