@@ -25,24 +25,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _showLogoutDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Konfirmasi Logout'),
-        content: const Text('Apakah Anda yakin ingin keluar dari aplikasi?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Konfirmasi Logout'),
+            content: const Text(
+              'Apakah Anda yakin ingin keluar dari aplikasi?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Batal'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  context.read<AuthProvider>().logout();
+                },
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Logout'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.read<AuthProvider>().logout();
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Logout'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -79,20 +82,79 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   _buildSyncStatus(provider.unsyncedCount),
                   const SizedBox(height: 8),
-                  
-                  // Summary List (1 per row to fix overflow)
+
+                  Text(
+                    'Statistik Stok',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   Column(
                     children: [
-                      _buildSummaryRow('Total Inventory', provider.totalBarang.toString(), Icons.inventory_2, colorScheme.primary),
+                      _buildSummaryRow(
+                        'Total Jenis Barang',
+                        provider.totalBarang.toString(),
+                        Icons.category_rounded,
+                        colorScheme.primary,
+                      ),
                       const SizedBox(height: 12),
-                      _buildSummaryRow('Received Today', provider.penerimaanHariIni.toString(), Icons.today, colorScheme.secondary),
+                      _buildSummaryRow(
+                        'Total Stok',
+                        provider.totalStok.toString(),
+                        Icons.inventory_2,
+                        colorScheme.secondary,
+                      ),
                       const SizedBox(height: 12),
-                      _buildSummaryRow('Active Suppliers', provider.totalSupplier.toString(), Icons.business, const Color(0xFF004395)),
+                      _buildSummaryRow(
+                        'Stok Kritis',
+                        provider.stokKritis.toString(),
+                        Icons.error_rounded,
+                        colorScheme.error,
+                      ),
                       const SizedBox(height: 12),
-                      _buildSummaryRow('Total Receipts', provider.totalPenerimaan.toString(), Icons.receipt_long, colorScheme.primary),
+                      _buildSummaryRow(
+                        'Stok Rendah',
+                        provider.stokRendah.toString(),
+                        Icons.warning_amber_rounded,
+                        const Color(0xFF9A6700),
+                      ),
                     ],
                   ),
-                  
+
+                  const SizedBox(height: 24),
+                  Text(
+                    'Aktivitas Penerimaan',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Column(
+                    children: [
+                      _buildSummaryRow(
+                        'Diterima Hari Ini',
+                        provider.penerimaanHariIni.toString(),
+                        Icons.today,
+                        colorScheme.secondary,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildSummaryRow(
+                        'Supplier Aktif',
+                        provider.totalSupplier.toString(),
+                        Icons.business,
+                        const Color(0xFF004395),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildSummaryRow(
+                        'Total Penerimaan',
+                        provider.totalPenerimaan.toString(),
+                        Icons.receipt_long,
+                        colorScheme.primary,
+                      ),
+                    ],
+                  ),
+
                   const SizedBox(height: 32),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -100,7 +162,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const Flexible(
                         child: Text(
                           'Receiving Trends',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -108,10 +173,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Chart Section
                   _buildChart(provider.getChartData(_selectedFilter)),
-                  
+
                   const SizedBox(height: 40),
                 ],
               ),
@@ -129,12 +194,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
       margin: const EdgeInsets.only(bottom: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: count > 0 
-          ? LinearGradient(colors: [colorScheme.errorContainer, colorScheme.onErrorContainer.withOpacity(0.05)])
-          : LinearGradient(colors: [colorScheme.secondaryContainer.withOpacity(0.5), colorScheme.secondaryContainer.withOpacity(0.1)]),
+        gradient:
+            count > 0
+                ? LinearGradient(
+                  colors: [
+                    colorScheme.errorContainer,
+                    colorScheme.onErrorContainer.withValues(alpha: 0.05),
+                  ],
+                )
+                : LinearGradient(
+                  colors: [
+                    colorScheme.secondaryContainer.withValues(alpha: 0.5),
+                    colorScheme.secondaryContainer.withValues(alpha: 0.1),
+                  ],
+                ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: count > 0 ? colorScheme.error.withOpacity(0.2) : colorScheme.secondary.withOpacity(0.1),
+          color:
+              count > 0
+                  ? colorScheme.error.withValues(alpha: 0.2)
+                  : colorScheme.secondary.withValues(alpha: 0.1),
         ),
       ),
       child: Row(
@@ -161,14 +240,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
-                    color: count > 0 ? colorScheme.error : colorScheme.onSecondaryContainer,
+                    color:
+                        count > 0
+                            ? colorScheme.error
+                            : colorScheme.onSecondaryContainer,
                   ),
                 ),
                 Text(
-                  count > 0 ? 'Segera sinkronkan ke server' : 'Data Anda sudah aman di server',
+                  count > 0
+                      ? 'Segera sinkronkan ke server'
+                      : 'Data Anda sudah aman di server',
                   style: TextStyle(
                     fontSize: 12,
-                    color: count > 0 ? colorScheme.error.withOpacity(0.7) : colorScheme.onSecondaryContainer.withOpacity(0.7),
+                    color:
+                        count > 0
+                            ? colorScheme.error.withValues(alpha: 0.7)
+                            : colorScheme.onSecondaryContainer.withValues(
+                              alpha: 0.7,
+                            ),
                   ),
                 ),
               ],
@@ -179,7 +268,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               onPressed: () => context.read<InventoryProvider>().syncData(),
               style: FilledButton.styleFrom(
                 visualDensity: VisualDensity.compact,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: const Text('Sync'),
             ),
@@ -188,13 +279,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildSummaryRow(String title, String value, IconData icon, Color color) {
+  Widget _buildSummaryRow(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Card(
       elevation: 0,
-      color: color.withOpacity(0.08),
+      color: color.withValues(alpha: 0.08),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: color.withOpacity(0.1)),
+        side: BorderSide(color: color.withValues(alpha: 0.1)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -203,7 +299,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
+                color: color.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: color, size: 24),
@@ -218,7 +314,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: color.withOpacity(0.8),
+                      color: color.withValues(alpha: 0.8),
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -233,7 +329,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: color.withOpacity(0.3)),
+            Icon(Icons.chevron_right, color: color.withValues(alpha: 0.3)),
           ],
         ),
       ),
@@ -243,17 +339,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildFilterButtons() {
     return SegmentedButton<String>(
       segments: const [
-        ButtonSegment(value: 'Minggu', label: Text('Minggu'), icon: Icon(Icons.view_week)),
-        ButtonSegment(value: 'Bulan', label: Text('Bulan'), icon: Icon(Icons.calendar_month)),
+        ButtonSegment(
+          value: 'Minggu',
+          label: Text('Minggu'),
+          icon: Icon(Icons.view_week),
+        ),
+        ButtonSegment(
+          value: 'Bulan',
+          label: Text('Bulan'),
+          icon: Icon(Icons.calendar_month),
+        ),
       ],
       selected: {_selectedFilter},
       onSelectionChanged: (newSelection) {
         setState(() => _selectedFilter = newSelection.first);
       },
       showSelectedIcon: false,
-      style: SegmentedButton.styleFrom(
-        visualDensity: VisualDensity.compact,
-      ),
+      style: SegmentedButton.styleFrom(visualDensity: VisualDensity.compact),
     );
   }
 
@@ -289,11 +391,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   getTooltipItem: (group, groupIndex, rod, rodIndex) {
                     return BarTooltipItem(
                       '${keys[groupIndex]}\n',
-                      TextStyle(color: colorScheme.onSecondaryContainer, fontWeight: FontWeight.bold),
+                      TextStyle(
+                        color: colorScheme.onSecondaryContainer,
+                        fontWeight: FontWeight.bold,
+                      ),
                       children: [
                         TextSpan(
                           text: rod.toY.toInt().toString(),
-                          style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w900),
+                          style: TextStyle(
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
                       ],
                     );
@@ -312,7 +420,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           padding: const EdgeInsets.only(top: 8.0),
                           child: Text(
                             keys[index],
-                            style: TextStyle(fontSize: 10, color: colorScheme.outline, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: colorScheme.outline,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         );
                       }
@@ -327,21 +439,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     getTitlesWidget: (value, meta) {
                       return Text(
                         value.toInt().toString(),
-                        style: TextStyle(fontSize: 10, color: colorScheme.outline),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: colorScheme.outline,
+                        ),
                       );
                     },
                   ),
                 ),
-                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                rightTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
               ),
               gridData: FlGridData(
-                show: true, 
+                show: true,
                 drawVerticalLine: false,
-                getDrawingHorizontalLine: (value) => FlLine(
-                  color: colorScheme.outlineVariant.withOpacity(0.5),
-                  strokeWidth: 1,
-                ),
+                getDrawingHorizontalLine:
+                    (value) => FlLine(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                      strokeWidth: 1,
+                    ),
               ),
               borderData: FlBorderData(show: false),
               barGroups: List.generate(keys.length, (i) {
@@ -356,7 +476,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         end: Alignment.topCenter,
                       ),
                       width: 20,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(6),
+                      ),
                     ),
                   ],
                 );

@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3, // Version bumped to add status_verifikasi
+      version: 4, // Version bumped to cache stok_minimal
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < newVersion) {
@@ -58,6 +58,7 @@ class DatabaseHelper {
         nama_barang $textType,
         satuan $textType,
         stok $intType,
+        stok_minimal $intType DEFAULT 10,
         harga_beli $intNullable
       )
     ''');

@@ -20,7 +20,9 @@ class InventoryProvider extends ChangeNotifier {
       List<ConnectivityResult> results,
     ) {
       if (results.isNotEmpty && !results.contains(ConnectivityResult.none)) {
-        debugPrint('🌐 Internet terdeteksi ($results). Mencoba sinkronisasi data pending...');
+        debugPrint(
+          '🌐 Internet terdeteksi ($results). Mencoba sinkronisasi data pending...',
+        );
         syncData();
       }
     });
@@ -52,6 +54,14 @@ class InventoryProvider extends ChangeNotifier {
 
   // Summary Getters
   int get totalBarang => _barangs.length;
+  int get totalStok => _barangs.fold(0, (total, barang) => total + barang.stok);
+  int get stokKritis => _barangs.where((barang) => barang.stok <= 0).length;
+  int get stokRendah =>
+      _barangs
+          .where(
+            (barang) => barang.stok > 0 && barang.stok <= barang.stokMinimal,
+          )
+          .length;
   int get totalSupplier => _suppliers.length;
   int get totalPenerimaan => _history.length;
 
@@ -163,7 +173,7 @@ class InventoryProvider extends ChangeNotifier {
       // 1. SELALU simpan ke lokal dulu (Offline-First)
       debugPrint('💾 Menyimpan data ke database lokal (Status: PENDING)...');
       await _repository.savePenerimaanLocal(penerimaan, forceSynced: false);
-      
+
       // Update UI history agar data langsung muncul di daftar
       await _loadHistory();
       await _updateUnsyncedCount();
@@ -173,7 +183,6 @@ class InventoryProvider extends ChangeNotifier {
       // 2. Coba kirim ke backend di background (Tanpa cek koneksi eksplisit)
       debugPrint('🛰️ Mencoba sinkronisasi background...');
       _backgroundSyncItem(penerimaan);
-      
     } catch (e) {
       debugPrint('❌ Error sistem saat simpan lokal: $e');
       _isLoading = false;
@@ -187,13 +196,15 @@ class InventoryProvider extends ChangeNotifier {
       // Repository syncPenerimaan sudah memiliki timeout internal di Dio (ApiClient)
       await _repository.syncPenerimaan(penerimaan);
       debugPrint('✅ Background Sync Berhasil: ${penerimaan.noTerima}');
-      
+
       // Update data lokal jika berhasil
       await _loadHistory();
       await _updateUnsyncedCount();
       notifyListeners();
     } catch (e) {
-      debugPrint('ℹ️ Background Sync Tertunda (Offline/Server Error): ${penerimaan.noTerima}');
+      debugPrint(
+        'ℹ️ Background Sync Tertunda (Offline/Server Error): ${penerimaan.noTerima}',
+      );
       // Tidak perlu throw, data sudah aman di lokal dengan status 0
     }
   }
@@ -209,7 +220,9 @@ class InventoryProvider extends ChangeNotifier {
       return;
     }
 
-    debugPrint('🚀 Sinkronisasi masal dimulai (${unsyncedItems.length} data)...');
+    debugPrint(
+      '🚀 Sinkronisasi masal dimulai (${unsyncedItems.length} data)...',
+    );
     _isSyncing = true;
     notifyListeners();
 

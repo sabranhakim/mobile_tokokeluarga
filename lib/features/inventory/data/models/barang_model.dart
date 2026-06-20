@@ -4,6 +4,7 @@ class Barang {
   final String namaBarang;
   final String satuan;
   final int stok;
+  final int stokMinimal;
   final int? hargaBeli;
 
   Barang({
@@ -12,6 +13,7 @@ class Barang {
     required this.namaBarang,
     required this.satuan,
     required this.stok,
+    this.stokMinimal = 10,
     this.hargaBeli,
   });
 
@@ -22,6 +24,7 @@ class Barang {
       namaBarang: json['nama_barang'],
       satuan: json['satuan'],
       stok: json['stok'] ?? 0,
+      stokMinimal: json['stok_minimal'] ?? 10,
       hargaBeli: json['harga_beli'],
     );
   }
@@ -33,6 +36,7 @@ class Barang {
       'nama_barang': namaBarang,
       'satuan': satuan,
       'stok': stok,
+      'stok_minimal': stokMinimal,
       'harga_beli': hargaBeli,
     };
   }
