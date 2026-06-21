@@ -184,8 +184,20 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         developer.log('Sync Success for ${penerimaan.noTerima}', name: 'InventoryRepository');
+        
+        // Extract server-generated no_terima to keep in sync with local DB
+        String? serverNoTerima;
+        if (response.data != null && response.data['data'] != null) {
+          serverNoTerima = response.data['data']['no_terima']?.toString();
+        }
+
         final db = await _dbHelper.database;
-        int count = await db.update('penerimaan_barang', {'is_synced': 1}, where: 'id = ?', whereArgs: [penerimaan.id]);
+        final Map<String, dynamic> updateData = {'is_synced': 1};
+        if (serverNoTerima != null) {
+          updateData['no_terima'] = serverNoTerima;
+        }
+
+        int count = await db.update('penerimaan_barang', updateData, where: 'id = ?', whereArgs: [penerimaan.id]);
         developer.log('Local DB update count: $count', name: 'InventoryRepository');
         if (compressedFile != null) await File(compressedFile.path).delete();
       } else {
