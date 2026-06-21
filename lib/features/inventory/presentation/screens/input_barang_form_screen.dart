@@ -222,6 +222,159 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
     }
   }
 
+  Future<bool> _showPreviewDialog(List<DetailPenerimaan> details, InventoryProvider provider) async {
+    final double totalQty = details.fold<double>(0, (sum, item) => sum + item.jumlah);
+    
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.rate_review, color: colorPrimary),
+              const SizedBox(width: 8),
+              const Text('Ringkasan Penerimaan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Mohon periksa kembali data sebelum menyimpan.',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildPreviewRow('No. Terima', _noTerimaController.text),
+                  _buildPreviewRow('Supplier', _selectedSupplier!.namaSupplier),
+                  _buildPreviewRow('Tanggal', DateFormat('dd MMMM yyyy').format(_selectedDate)),
+                  const SizedBox(height: 12),
+                  if (widget.photoPath.isNotEmpty) ...[
+                    const Text(
+                      'Foto Bon:',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.file(
+                        File(widget.photoPath),
+                        height: 120,
+                        width: 120,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  const Text(
+                    'Daftar Barang:',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    padding: const EdgeInsets.all(8),
+                    child: Column(
+                      children: [
+                        ...details.map((detail) {
+                          final barang = provider.barangs.firstWhere(
+                            (b) => b.id == detail.barangId,
+                            orElse: () => Barang(id: '', kodeBarang: '', namaBarang: detail.barangNama, satuan: '', stok: 0),
+                          );
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    detail.barangNama,
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                                  ),
+                                ),
+                                Text(
+                                  '${detail.jumlah.toStringAsFixed(0)} ${barang.satuan}',
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                        const Divider(),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Total Jumlah Item',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              totalQty.toStringAsFixed(0),
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: colorPrimary),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Batal & Edit', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colorPrimary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Konfirmasi & Simpan', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+    return result ?? false;
+  }
+
+  Widget _buildPreviewRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate() || _selectedSupplier == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -256,6 +409,11 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
       if (!shouldContinue) {
         return;
       }
+    }
+
+    final shouldSave = await _showPreviewDialog(details, provider);
+    if (!shouldSave) {
+      return;
     }
 
     final penerimaan = PenerimaanBarang(
