@@ -19,7 +19,12 @@ class InventoryProvider extends ChangeNotifier {
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
       List<ConnectivityResult> results,
     ) {
-      if (results.isNotEmpty && !results.contains(ConnectivityResult.none)) {
+      final online = results.isNotEmpty && !results.contains(ConnectivityResult.none);
+      if (online != _isOnline) {
+        _isOnline = online;
+        notifyListeners();
+      }
+      if (online) {
         debugPrint(
           '🌐 Internet terdeteksi ($results). Mencoba sinkronisasi data pending...',
         );
@@ -33,6 +38,9 @@ class InventoryProvider extends ChangeNotifier {
     _connectivitySubscription?.cancel();
     super.dispose();
   }
+
+  bool _isOnline = true;
+  bool get isOnline => _isOnline;
 
   List<Supplier> _suppliers = [];
   List<Supplier> get suppliers => _suppliers;
