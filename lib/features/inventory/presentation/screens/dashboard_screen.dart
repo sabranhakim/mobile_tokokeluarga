@@ -80,82 +80,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _buildSyncStatus(provider.unsyncedCount),
-                  const SizedBox(height: 8),
+                  // Bento Grid
+                  _buildBentoGrid(provider, colorScheme),
 
-                  Text(
-                    'Statistik Stok',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Column(
-                    children: [
-                      _buildSummaryRow(
-                        'Total Jenis Barang',
-                        provider.totalBarang.toString(),
-                        Icons.category_rounded,
-                        colorScheme.primary,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildSummaryRow(
-                        'Total Stok',
-                        provider.totalStok.toString(),
-                        Icons.inventory_2,
-                        colorScheme.secondary,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildSummaryRow(
-                        'Stok Kritis',
-                        provider.stokKritis.toString(),
-                        Icons.error_rounded,
-                        colorScheme.error,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildSummaryRow(
-                        'Stok Rendah',
-                        provider.stokRendah.toString(),
-                        Icons.warning_amber_rounded,
-                        const Color(0xFF9A6700),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 24),
-                  Text(
-                    'Aktivitas Penerimaan',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Column(
-                    children: [
-                      _buildSummaryRow(
-                        'Diterima Hari Ini',
-                        provider.penerimaanHariIni.toString(),
-                        Icons.today,
-                        colorScheme.secondary,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildSummaryRow(
-                        'Supplier Aktif',
-                        provider.totalSupplier.toString(),
-                        Icons.business,
-                        const Color(0xFF004395),
-                      ),
-                      const SizedBox(height: 12),
-                      _buildSummaryRow(
-                        'Total Penerimaan',
-                        provider.totalPenerimaan.toString(),
-                        Icons.receipt_long,
-                        colorScheme.primary,
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 28),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -187,151 +115,159 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildSyncStatus(int count) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 500),
-      margin: const EdgeInsets.only(bottom: 24),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient:
-            count > 0
-                ? LinearGradient(
-                  colors: [
-                    colorScheme.errorContainer,
-                    colorScheme.onErrorContainer.withValues(alpha: 0.05),
-                  ],
-                )
-                : LinearGradient(
-                  colors: [
-                    colorScheme.secondaryContainer.withValues(alpha: 0.5),
-                    colorScheme.secondaryContainer.withValues(alpha: 0.1),
-                  ],
-                ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color:
-              count > 0
-                  ? colorScheme.error.withValues(alpha: 0.2)
-                  : colorScheme.secondary.withValues(alpha: 0.1),
+  
+
+  Widget _buildBentoGrid(InventoryProvider provider, ColorScheme colors) {
+    return Column(
+      children: [
+        // Row 1: Total Barang (2x) + Stok Kritis (1x)
+        Row(
+          children: [
+            Expanded(flex: 2, child: _bentoCard(
+              icon: Icons.category_rounded,
+              color: colors.primary,
+              title: 'Total Barang',
+              value: provider.totalBarang.toString(),
+              height: 110,
+            )),
+            const SizedBox(width: 12),
+            Expanded(child: _bentoCard(
+              icon: Icons.error_rounded,
+              color: colors.error,
+              title: 'Stok Kritis',
+              value: provider.stokKritis.toString(),
+              height: 110,
+              subtitle: 'Habis',
+            )),
+          ],
         ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: count > 0 ? colorScheme.error : colorScheme.secondary,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              count > 0 ? Icons.sync_problem : Icons.cloud_done_rounded,
-              color: Colors.white,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  count > 0 ? '$count Data Tertunda' : 'Status Sinkron',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color:
-                        count > 0
-                            ? colorScheme.error
-                            : colorScheme.onSecondaryContainer,
-                  ),
-                ),
-                Text(
-                  count > 0
-                      ? 'Segera sinkronkan ke server'
-                      : 'Data Anda sudah aman di server',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color:
-                        count > 0
-                            ? colorScheme.error.withValues(alpha: 0.7)
-                            : colorScheme.onSecondaryContainer.withValues(
-                              alpha: 0.7,
-                            ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (count > 0)
-            FilledButton.tonal(
-              onPressed: () => context.read<InventoryProvider>().syncData(),
-              style: FilledButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text('Sync'),
-            ),
-        ],
-      ),
+        const SizedBox(height: 12),
+
+        // Row 2: Stok Rendah (1x) + Total Stok (2x)
+        Row(
+          children: [
+            Expanded(child: _bentoCard(
+              icon: Icons.warning_amber_rounded,
+              color: const Color(0xFF9A6700),
+              title: 'Stok Rendah',
+              value: provider.stokRendah.toString(),
+              height: 110,
+            )),
+            const SizedBox(width: 12),
+            Expanded(flex: 2, child: _bentoCard(
+              icon: Icons.inventory_2,
+              color: colors.secondary,
+              title: 'Total Stok',
+              value: provider.totalStok.toString(),
+              height: 110,
+            )),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Row 3: Hari Ini (1x) + Supplier (1x) + Total Penerimaan (1x)
+        Row(
+          children: [
+            Expanded(child: _bentoCard(
+              icon: Icons.today,
+              color: colors.secondary,
+              title: 'Hari Ini',
+              value: provider.penerimaanHariIni.toString(),
+              height: 110,
+            )),
+            const SizedBox(width: 12),
+            Expanded(child: _bentoCard(
+              icon: Icons.business,
+              color: const Color(0xFF004395),
+              title: 'Supplier',
+              value: provider.totalSupplier.toString(),
+              height: 110,
+            )),
+            const SizedBox(width: 12),
+            Expanded(child: _bentoCard(
+              icon: Icons.receipt_long,
+              color: colors.primary,
+              title: 'Penerimaan',
+              value: provider.totalPenerimaan.toString(),
+              height: 110,
+            )),
+          ],
+        ),
+      ],
     );
   }
 
-  Widget _buildSummaryRow(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Card(
-      elevation: 0,
-      color: color.withValues(alpha: 0.08),
-      shape: RoundedRectangleBorder(
+  Widget _bentoCard({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String value,
+    double height = 110,
+    String? subtitle,
+  }) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: color.withValues(alpha: 0.1)),
+        border: Border.all(color: color.withValues(alpha: 0.12)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 16),
               ),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
+              const Spacer(),
+              if (subtitle != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    subtitle,
                     style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: color.withValues(alpha: 0.8),
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      color: color.withValues(alpha: 0.7),
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    value,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              color: color,
+              height: 1.1,
             ),
-            Icon(Icons.chevron_right, color: color.withValues(alpha: 0.3)),
-          ],
-        ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color.withValues(alpha: 0.7),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }

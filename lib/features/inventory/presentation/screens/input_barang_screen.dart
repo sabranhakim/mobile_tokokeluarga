@@ -13,14 +13,6 @@ class InputBarangScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Input Penerimaan'),
-        actions: [
-          if (provider.unsyncedCount > 0)
-            IconButton(
-              icon: const Icon(Icons.cloud_upload_outlined, color: Colors.blue),
-              tooltip: 'Sync Data',
-              onPressed: () => provider.syncData(),
-            ),
-        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -70,19 +62,6 @@ class InputBarangScreen extends StatelessWidget {
                 ),
               ),
             
-            const SizedBox(height: 24),
-            
-            if (provider.unsyncedCount > 0 && !provider.isSyncing)
-              OutlinedButton.icon(
-                onPressed: () => provider.syncData(),
-                icon: const Icon(Icons.sync),
-                label: Text('SINKRONKAN (${provider.unsyncedCount}) DATA'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  side: const BorderSide(color: Colors.blue),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-              ),
           ],
         ),
       ),

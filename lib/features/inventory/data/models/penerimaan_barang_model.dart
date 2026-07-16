@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'detail_penerimaan_model.dart';
 
 class PenerimaanBarang {
@@ -7,7 +8,7 @@ class PenerimaanBarang {
   final String supplierNama; // Optional, untuk mempermudah tampilan offline
   final int? userId;
   final DateTime tglTerima;
-  final String? fotoBonPath; // Lokasi path foto lokal
+  final List<String> fotoBonPaths; // Lokasi path foto lokal (mendukung multi-foto)
   final int isSynced; // 0: Pending, 1: Berhasil
   final String statusVerifikasi; // 'pending' atau 'verified'
   final List<DetailPenerimaan> details;
@@ -19,7 +20,7 @@ class PenerimaanBarang {
     required this.supplierNama,
     this.userId,
     required this.tglTerima,
-    this.fotoBonPath,
+    this.fotoBonPaths = const [],
     this.isSynced = 0,
     this.statusVerifikasi = 'pending',
     this.details = const [],
@@ -29,6 +30,17 @@ class PenerimaanBarang {
     final supplier = json['supplier'] as Map<String, dynamic>?;
     final details = (json['details'] ?? json['detail_penerimaans']) as List?;
 
+    List<String> parsePaths(dynamic value) {
+      if (value is List) return value.cast<String>();
+      if (value is String) {
+        if (value.startsWith('[')) {
+          return (jsonDecode(value) as List).cast<String>();
+        }
+        return value.isNotEmpty ? [value] : [];
+      }
+      return [];
+    }
+
     return PenerimaanBarang(
       id: json['id']?.toString(),
       noTerima: json['no_terima'],
@@ -36,8 +48,7 @@ class PenerimaanBarang {
       supplierNama: json['supplier_nama'] ?? supplier?['nama_supplier'] ?? '',
       userId: json['user_id'],
       tglTerima: DateTime.parse(json['tgl_terima']),
-      // Handle both local DB field and API field
-      fotoBonPath: json['foto_bon_path'] ?? json['foto_bon'],
+      fotoBonPaths: parsePaths(json['foto_bon_path'] ?? json['foto_bon']),
       isSynced: json['is_synced'] ?? 1,
       statusVerifikasi: json['status_verifikasi'] ?? 'pending',
       details: details?.map((d) => DetailPenerimaan.fromJson(d)).toList() ?? [],
@@ -52,9 +63,12 @@ class PenerimaanBarang {
       'supplier_nama': supplierNama,
       'user_id': userId,
       'tgl_terima': tglTerima.toIso8601String(),
-      'foto_bon_path': fotoBonPath,
+      'foto_bon_path': jsonEncode(fotoBonPaths),
       'is_synced': isSynced,
       'status_verifikasi': statusVerifikasi,
     };
   }
+
+  /// Mengembalikan path foto pertama (untuk backward compatibility)
+  String? get fotoBonPath => fotoBonPaths.isNotEmpty ? fotoBonPaths.first : null;
 }

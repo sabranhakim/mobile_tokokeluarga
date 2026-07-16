@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/inventory_provider.dart';
 import 'package:intl/intl.dart';
+import '../../data/models/penerimaan_barang_model.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -11,13 +13,208 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  String _selectedFilter = 'Hari Ini';
+  String _selectedFilter = 'Semua';
 
-  bool _isToday(DateTime date) {
-    final now = DateTime.now();
-    return date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day;
+  void _showDetailModal(BuildContext context, PenerimaanBarang item) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isSynced = item.isSynced == 1;
+    final isVerified = item.statusVerifikasi == 'verified';
+
+    String statusText;
+    Color badgeBgColor;
+    Color badgeTextColor;
+
+    if (!isSynced) {
+      badgeBgColor = colorScheme.errorContainer;
+      badgeTextColor = colorScheme.error;
+      statusText = 'PENDING SYNC';
+    } else if (isVerified) {
+      badgeBgColor = const Color(0xFFE5FFEA);
+      badgeTextColor = const Color(0xFF00851D);
+      statusText = 'TERVERIFIKASI';
+    } else {
+      badgeBgColor = const Color(0xFFE5EEFF);
+      badgeTextColor = const Color(0xFF00236F);
+      statusText = 'MENUNGGU VERIFIKASI';
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          maxChildSize: 0.9,
+          minChildSize: 0.4,
+          expand: false,
+          builder: (ctx, scrollController) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+              child: ListView(
+                controller: scrollController,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: colorScheme.outlineVariant,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Header
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.supplierNama,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              DateFormat('dd MMM yyyy • HH:mm').format(item.tglTerima),
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: badgeBgColor,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          statusText,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: badgeTextColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  if (item.noTerima != null) ...[
+                    _infoRow(colorScheme, 'No. Terima', item.noTerima!),
+                    const SizedBox(height: 4),
+                  ],
+                  _infoRow(colorScheme, 'Total Item', '${item.details.length} barang'),
+                  const SizedBox(height: 4),
+                  _infoRow(colorScheme, 'Status Sinkron', isSynced ? 'Tersinkron' : 'Belum Sinkron'),
+
+                  const Divider(height: 32),
+
+                  // Photos
+                  if (item.fotoBonPaths.isNotEmpty) ...[
+                    Text('Foto Bon', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: colorScheme.primary)),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 120,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: item.fotoBonPaths.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (_, i) {
+                          final path = item.fotoBonPaths[i];
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: path.startsWith('http')
+                              ? Image.network(path, width: 120, height: 120, fit: BoxFit.cover)
+                              : Image.file(File(path), width: 120, height: 120, fit: BoxFit.cover),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+
+                  // Detail Items
+                  Text('Daftar Barang', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: colorScheme.primary)),
+                  const SizedBox(height: 8),
+                  ...item.details.asMap().entries.map((entry) {
+                    final i = entry.key;
+                    final d = entry.value;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 28,
+                            height: 28,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '${i + 1}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.primary,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              d.barangNama,
+                              style: const TextStyle(fontSize: 15),
+                            ),
+                          ),
+                          Text(
+                            '${d.jumlah}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+
+                  const SizedBox(height: 20),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _infoRow(ColorScheme colorScheme, String label, String value) {
+    return Row(
+      children: [
+        Text('$label : ', style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13)),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+      ],
+    );
   }
 
   @override
@@ -34,7 +231,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children:
-                  ['Hari Ini', 'Semua', 'Sudah Sync', 'Belum Sync'].map((
+                  ['Semua', 'Sudah Sync', 'Belum Sync'].map((
                     filter,
                   ) {
                     return Padding(
@@ -57,9 +254,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
               builder: (context, provider, child) {
                 final filteredHistory =
                     provider.history.where((item) {
-                      if (_selectedFilter == 'Hari Ini') {
-                        return _isToday(item.tglTerima);
-                      }
                       if (_selectedFilter == 'Sudah Sync') {
                         return item.isSynced == 1;
                       }
@@ -84,6 +278,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           'Tidak ada riwayat ditemukan',
                           style: TextStyle(color: colorScheme.outline),
                         ),
+                        if (_selectedFilter == 'Belum Sync' && provider.unsyncedCount > 0) ...[
+                          const SizedBox(height: 24),
+                          FilledButton.tonalIcon(
+                            onPressed: provider.isSyncing ? null : () => provider.syncData(),
+                            icon: provider.isSyncing
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.sync),
+                            label: Text(provider.isSyncing ? 'Menyinkronkan...' : 'Sinkronkan Sekarang'),
+                          ),
+                        ],
                       ],
                     ),
                   );
@@ -93,9 +297,55 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   onRefresh: () => provider.init(),
                   child: ListView.builder(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: filteredHistory.length,
+                    itemCount: filteredHistory.length + (_selectedFilter == 'Belum Sync' ? 1 : 0),
                     itemBuilder: (context, index) {
-                      final item = filteredHistory[index];
+                      if (_selectedFilter == 'Belum Sync' && index == 0) {
+                        return Card(
+                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.primaryContainer,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Icon(Icons.cloud_upload, color: colorScheme.primary),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Sinkronkan ${provider.unsyncedCount} data',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Kirim data yang belum tersinkron ke server',
+                                        style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                FilledButton.tonal(
+                                  onPressed: provider.isSyncing ? null : () => provider.syncData(),
+                                  child: provider.isSyncing
+                                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                    : const Icon(Icons.sync),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+
+                      final adjustedIndex = _selectedFilter == 'Belum Sync' ? index - 1 : index;
+                      final item = filteredHistory[adjustedIndex];
                       final isSynced = item.isSynced == 1;
                       final isVerified = item.statusVerifikasi == 'verified';
 
@@ -135,9 +385,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           vertical: 6,
                         ),
                         child: InkWell(
-                          onTap: () {
-                            // Detail view logic could go here
-                          },
+                          onTap: () => _showDetailModal(context, item),
                           child: Padding(
                             padding: const EdgeInsets.all(16.0),
                             child: Row(

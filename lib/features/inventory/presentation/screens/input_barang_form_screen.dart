@@ -11,8 +11,8 @@ import '../../data/models/penerimaan_barang_model.dart';
 import '../../data/models/detail_penerimaan_model.dart';
 
 class InputBarangFormScreen extends StatefulWidget {
-  final String photoPath;
-  const InputBarangFormScreen({super.key, required this.photoPath});
+  final List<String> photoPaths;
+  const InputBarangFormScreen({super.key, required this.photoPaths});
 
   @override
   State<InputBarangFormScreen> createState() => _InputBarangFormScreenState();
@@ -254,20 +254,26 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                   _buildPreviewRow('Supplier', _selectedSupplier!.namaSupplier),
                   _buildPreviewRow('Tanggal', DateFormat('dd MMMM yyyy').format(_selectedDate)),
                   const SizedBox(height: 12),
-                  if (widget.photoPath.isNotEmpty) ...[
+                  if (widget.photoPaths.isNotEmpty) ...[
                     const Text(
                       'Foto Bon:',
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey),
                     ),
                     const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.file(
-                        File(widget.photoPath),
-                        height: 120,
-                        width: 120,
-                        fit: BoxFit.cover,
-                      ),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: widget.photoPaths.map((path) {
+                        return ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(
+                            File(path),
+                            height: 64,
+                            width: 64,
+                            fit: BoxFit.cover,
+                          ),
+                        );
+                      }).toList(),
                     ),
                     const SizedBox(height: 16),
                   ],
@@ -421,7 +427,7 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
       supplierId: _selectedSupplier!.id,
       supplierNama: _selectedSupplier!.namaSupplier,
       tglTerima: _selectedDate,
-      fotoBonPath: widget.photoPath,
+      fotoBonPaths: widget.photoPaths,
       details: details,
     );
 
@@ -487,11 +493,9 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
             children: [
               // Photo Preview Area
               GestureDetector(
-                onTap:
-                    () =>
-                        Navigator.pop(context), // Go back to re-take if needed
+                onTap: () => Navigator.pop(context),
                 child: Container(
-                  height: 240,
+                  height: widget.photoPaths.length > 1 ? 180 : 240,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     border: Border.all(color: colorOutlineVariant),
@@ -501,7 +505,15 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      Image.file(File(widget.photoPath), fit: BoxFit.cover),
+                      widget.photoPaths.length == 1
+                        ? Image.file(File(widget.photoPaths.first), fit: BoxFit.cover)
+                        : Row(
+                            children: widget.photoPaths.map((path) {
+                              return Expanded(
+                                child: Image.file(File(path), fit: BoxFit.cover),
+                              );
+                            }).toList(),
+                          ),
                       Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -533,16 +545,16 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            const Text(
-                              'Receipt Captured',
-                              style: TextStyle(
+                            Text(
+                              '${widget.photoPaths.length} Foto${widget.photoPaths.length > 1 ? '' : ''} Bon',
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
                               ),
                             ),
                             Text(
-                              'Tap to retake photo',
+                              'Tap untuk ganti foto',
                               style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.8),
                                 fontSize: 12,

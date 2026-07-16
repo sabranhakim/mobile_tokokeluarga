@@ -188,7 +188,7 @@ class InventoryProvider extends ChangeNotifier {
         supplierId: penerimaan.supplierId,
         supplierNama: penerimaan.supplierNama,
         tglTerima: penerimaan.tglTerima,
-        fotoBonPath: penerimaan.fotoBonPath,
+        fotoBonPaths: penerimaan.fotoBonPaths,
         details: penerimaan.details,
       );
 

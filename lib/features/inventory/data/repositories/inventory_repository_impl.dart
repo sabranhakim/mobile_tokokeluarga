@@ -95,6 +95,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
   @override
   Future<List<PenerimaanBarang>> getPenerimaanHistoryLocal() async {
     List<PenerimaanBarang> apiHistory = [];
+    bool apiSuccess = false;
 
     // 1. Ambil data dari API
     try {
@@ -102,20 +103,22 @@ class InventoryRepositoryImpl implements InventoryRepository {
       if (response.statusCode == 200) {
         final List data = response.data['data'];
         apiHistory = data.map((e) => PenerimaanBarang.fromJson(e)).toList();
+        apiSuccess = true;
         developer.log('Fetched ${apiHistory.length} items from API', name: 'InventoryRepository');
       }
     } catch (e) {
       developer.log('Fetch History API Error: $e', name: 'InventoryRepository');
     }
 
-    // 2. Ambil data dari Database Lokal yang BELUM sinkron
+    // 2. Ambil data dari Database Lokal
     final db = await _dbHelper.database;
-    List<PenerimaanBarang> localUnsynced = [];
+    List<PenerimaanBarang> localItems = [];
     try {
-      final List<Map<String, dynamic>> localMaps = await db.query(
-        'penerimaan_barang',
-        where: 'is_synced = 0',
-        orderBy: 'tgl_terima DESC',
+      // Jika API gagal, ambil SEMUA data lokal (synced + unsynced) sebagai fallback
+      // Jika API sukses, ambil hanya yang belum sync
+      final localMaps = await (apiSuccess
+        ? db.query('penerimaan_barang', where: 'is_synced = 0', orderBy: 'tgl_terima DESC')
+        : db.query('penerimaan_barang', orderBy: 'tgl_terima DESC')
       );
 
       for (var map in localMaps) {
@@ -126,15 +129,20 @@ class InventoryRepositoryImpl implements InventoryRepository {
         );
 
         final details = detailsMap.map((d) => DetailPenerimaan.fromJson(d)).toList();
-        localUnsynced.add(PenerimaanBarang.fromJson({...map, 'details': details, 'is_synced': 0}));
+        final isSynced = map['is_synced'] ?? 0;
+        localItems.add(PenerimaanBarang.fromJson({
+          ...map,
+          'details': details,
+          'is_synced': isSynced,
+        }));
       }
-      developer.log('Found ${localUnsynced.length} unsynced items in Local DB', name: 'InventoryRepository');
+      developer.log('Found ${localItems.length} items in Local DB${apiSuccess ? ' (unsynced only)' : ' (fallback all)'}', name: 'InventoryRepository');
     } catch (e) {
-      developer.log('Error loading local unsynced history: $e', name: 'InventoryRepository');
+      developer.log('Error loading local history: $e', name: 'InventoryRepository');
     }
 
-    // Gabungkan: Data lokal yang belum sinkron diletakkan paling atas
-    return [...localUnsynced, ...apiHistory];
+    // Gabungkan: Data lokal diletakkan paling atas, lalu data dari API
+    return [...localItems, ...apiHistory];
   }
 
   @override
@@ -146,12 +154,14 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
   @override
   Future<void> syncPenerimaan(PenerimaanBarang penerimaan) async {
-    XFile? compressedFile;
+    final List<XFile> compressedFiles = [];
     try {
-      final hasPhoto = penerimaan.fotoBonPath != null && penerimaan.fotoBonPath!.isNotEmpty;
+      final validPaths = penerimaan.fotoBonPaths.where((p) {
+        return p.isNotEmpty && File(p).existsSync();
+      }).toList();
 
-      if (hasPhoto) {
-        // With photo → kirim sebagai FormData (multipart)
+      if (validPaths.isNotEmpty) {
+        // With photos → kirim sebagai FormData (multipart)
         final formData = FormData.fromMap({
           'id': penerimaan.id,
           'no_terima': penerimaan.noTerima,
@@ -168,27 +178,27 @@ class InventoryRepositoryImpl implements InventoryRepository {
           ]);
         }
 
-        final File file = File(penerimaan.fotoBonPath!);
-        if (await file.exists()) {
-          final String targetPath = '${file.parent.path}/compressed_${penerimaan.noTerima}.jpg';
-          compressedFile = await FlutterImageCompress.compressAndGetFile(
-            file.absolute.path,
+        for (int idx = 0; idx < validPaths.length; idx++) {
+          final path = validPaths[idx];
+          final fieldName = idx == 0 ? 'foto_bon' : 'foto_bon_${idx + 1}';
+          final targetPath = '${Directory(path).parent.path}/compressed_${penerimaan.noTerima}_$idx.jpg';
+          final compressed = await FlutterImageCompress.compressAndGetFile(
+            File(path).absolute.path,
             targetPath,
             quality: 70,
           );
-          formData.files.add(MapEntry(
-            'foto_bon',
-            await MultipartFile.fromFile(
-              compressedFile?.path ?? penerimaan.fotoBonPath!,
-              filename: 'bon.jpg',
-            ),
-          ));
+          if (compressed != null) {
+            compressedFiles.add(compressed);
+            formData.files.add(MapEntry(
+              fieldName,
+              await MultipartFile.fromFile(compressed.path, filename: 'bon_$idx.jpg'),
+            ));
+          }
         }
 
-        developer.log('Syncing ${penerimaan.noTerima} to server (multipart)...', name: 'InventoryRepository');
+        developer.log('Syncing ${penerimaan.noTerima} to server (multipart, ${validPaths.length} photos)...', name: 'InventoryRepository');
         final response = await _apiClient.dio.post('/penerimaan-barang', data: formData);
         await _handleSyncResponse(response, penerimaan);
-        if (compressedFile != null) await File(compressedFile.path).delete();
       } else {
         // Without photo → kirim sebagai JSON biasa
         final body = {
@@ -197,7 +207,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
           'supplier_id': penerimaan.supplierId,
           'tgl_terima': DateFormat('yyyy-MM-dd').format(penerimaan.tglTerima),
           'items': penerimaan.details.asMap().entries.map((entry) {
-            final i = entry.key;
             final detail = entry.value;
             return {
               'id': detail.id ?? _uuid.v4(),
@@ -222,6 +231,10 @@ class InventoryRepositoryImpl implements InventoryRepository {
         developer.log('Sync Unknown Error: $e', name: 'InventoryRepository');
       }
       rethrow;
+    } finally {
+      for (final f in compressedFiles) {
+        try { await File(f.path).delete(); } catch (_) {}
+      }
     }
   }
 
