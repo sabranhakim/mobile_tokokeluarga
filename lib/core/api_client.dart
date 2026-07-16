@@ -9,12 +9,11 @@ class ApiClient {
   ApiClient._init() {
     dio = Dio(
       BaseOptions(
-        baseUrl: 'http://10.38.175.163:8000/api/v1',
+        baseUrl: 'http://10.69.198.163:8000/api/v1',
         connectTimeout: const Duration(seconds: 15),
         receiveTimeout: const Duration(seconds: 15),
         headers: {
           'Accept': 'application/json',
-          'Content-Type': 'application/json',
         },
       ),
     );

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:uuid/uuid.dart';
 import '../../data/models/barang_model.dart';
 import '../../data/models/supplier_model.dart';
 import '../../data/models/penerimaan_barang_model.dart';
@@ -9,6 +10,7 @@ import 'package:intl/intl.dart';
 
 class InventoryProvider extends ChangeNotifier {
   final InventoryRepository _repository;
+  final _uuid = const Uuid();
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
   InventoryProvider(this._repository) {
@@ -178,9 +180,21 @@ class InventoryProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Generate UUID sebelum simpan & sync agar idempotency berfungsi
+      final receiptId = penerimaan.id ?? _uuid.v4();
+      final penerimaanWithId = PenerimaanBarang(
+        id: receiptId,
+        noTerima: penerimaan.noTerima,
+        supplierId: penerimaan.supplierId,
+        supplierNama: penerimaan.supplierNama,
+        tglTerima: penerimaan.tglTerima,
+        fotoBonPath: penerimaan.fotoBonPath,
+        details: penerimaan.details,
+      );
+
       // 1. SELALU simpan ke lokal dulu (Offline-First)
       debugPrint('💾 Menyimpan data ke database lokal (Status: PENDING)...');
-      await _repository.savePenerimaanLocal(penerimaan, forceSynced: false);
+      await _repository.savePenerimaanLocal(penerimaanWithId, forceSynced: false);
 
       // Update UI history agar data langsung muncul di daftar
       await _loadHistory();
@@ -190,7 +204,7 @@ class InventoryProvider extends ChangeNotifier {
 
       // 2. Coba kirim ke backend di background (Tanpa cek koneksi eksplisit)
       debugPrint('🛰️ Mencoba sinkronisasi background...');
-      _backgroundSyncItem(penerimaan);
+      _backgroundSyncItem(penerimaanWithId);
     } catch (e) {
       debugPrint('❌ Error sistem saat simpan lokal: $e');
       _isLoading = false;

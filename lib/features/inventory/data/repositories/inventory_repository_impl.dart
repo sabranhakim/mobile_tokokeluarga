@@ -148,21 +148,26 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<void> syncPenerimaan(PenerimaanBarang penerimaan) async {
     XFile? compressedFile;
     try {
-      Map<String, dynamic> formDataMap = {
-        'id': penerimaan.id,
-        'no_terima': penerimaan.noTerima,
-        'supplier_id': penerimaan.supplierId,
-        'tgl_terima': DateFormat('yyyy-MM-dd').format(penerimaan.tglTerima),
-      };
+      final hasPhoto = penerimaan.fotoBonPath != null && penerimaan.fotoBonPath!.isNotEmpty;
 
-      for (int i = 0; i < penerimaan.details.length; i++) {
-        final detail = penerimaan.details[i];
-        formDataMap['items[$i][id]'] = detail.id ?? _uuid.v4();
-        formDataMap['items[$i][barang_id]'] = detail.barangId;
-        formDataMap['items[$i][jumlah]'] = detail.jumlah;
-      }
+      if (hasPhoto) {
+        // With photo → kirim sebagai FormData (multipart)
+        final formData = FormData.fromMap({
+          'id': penerimaan.id,
+          'no_terima': penerimaan.noTerima,
+          'supplier_id': penerimaan.supplierId,
+          'tgl_terima': DateFormat('yyyy-MM-dd').format(penerimaan.tglTerima),
+        });
 
-      if (penerimaan.fotoBonPath != null && penerimaan.fotoBonPath!.isNotEmpty) {
+        for (int i = 0; i < penerimaan.details.length; i++) {
+          final detail = penerimaan.details[i];
+          formData.fields.addAll([
+            MapEntry('items[$i][id]', detail.id ?? _uuid.v4()),
+            MapEntry('items[$i][barang_id]', detail.barangId),
+            MapEntry('items[$i][jumlah]', detail.jumlah.toString()),
+          ]);
+        }
+
         final File file = File(penerimaan.fotoBonPath!);
         if (await file.exists()) {
           final String targetPath = '${file.parent.path}/compressed_${penerimaan.noTerima}.jpg';
@@ -171,37 +176,40 @@ class InventoryRepositoryImpl implements InventoryRepository {
             targetPath,
             quality: 70,
           );
-
-          formDataMap['foto_bon'] = await MultipartFile.fromFile(
-            compressedFile?.path ?? penerimaan.fotoBonPath!,
-            filename: 'bon.jpg',
-          );
-        }
-      }
-
-      developer.log('Syncing ${penerimaan.noTerima} to server...', name: 'InventoryRepository');
-      final response = await _apiClient.dio.post('/penerimaan-barang', data: FormData.fromMap(formDataMap));
-
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        developer.log('Sync Success for ${penerimaan.noTerima}', name: 'InventoryRepository');
-        
-        // Extract server-generated no_terima to keep in sync with local DB
-        String? serverNoTerima;
-        if (response.data != null && response.data['data'] != null) {
-          serverNoTerima = response.data['data']['no_terima']?.toString();
+          formData.files.add(MapEntry(
+            'foto_bon',
+            await MultipartFile.fromFile(
+              compressedFile?.path ?? penerimaan.fotoBonPath!,
+              filename: 'bon.jpg',
+            ),
+          ));
         }
 
-        final db = await _dbHelper.database;
-        final Map<String, dynamic> updateData = {'is_synced': 1};
-        if (serverNoTerima != null) {
-          updateData['no_terima'] = serverNoTerima;
-        }
-
-        int count = await db.update('penerimaan_barang', updateData, where: 'id = ?', whereArgs: [penerimaan.id]);
-        developer.log('Local DB update count: $count', name: 'InventoryRepository');
+        developer.log('Syncing ${penerimaan.noTerima} to server (multipart)...', name: 'InventoryRepository');
+        final response = await _apiClient.dio.post('/penerimaan-barang', data: formData);
+        await _handleSyncResponse(response, penerimaan);
         if (compressedFile != null) await File(compressedFile.path).delete();
       } else {
-        developer.log('Sync Failed for ${penerimaan.noTerima}: ${response.statusCode} - ${response.statusMessage}', name: 'InventoryRepository');
+        // Without photo → kirim sebagai JSON biasa
+        final body = {
+          'id': penerimaan.id,
+          'no_terima': penerimaan.noTerima,
+          'supplier_id': penerimaan.supplierId,
+          'tgl_terima': DateFormat('yyyy-MM-dd').format(penerimaan.tglTerima),
+          'items': penerimaan.details.asMap().entries.map((entry) {
+            final i = entry.key;
+            final detail = entry.value;
+            return {
+              'id': detail.id ?? _uuid.v4(),
+              'barang_id': detail.barangId,
+              'jumlah': detail.jumlah,
+            };
+          }).toList(),
+        };
+
+        developer.log('Syncing ${penerimaan.noTerima} to server (JSON)...', name: 'InventoryRepository');
+        final response = await _apiClient.dio.post('/penerimaan-barang', data: body);
+        await _handleSyncResponse(response, penerimaan);
       }
     } catch (e) {
       if (e is DioException) {
@@ -214,6 +222,28 @@ class InventoryRepositoryImpl implements InventoryRepository {
         developer.log('Sync Unknown Error: $e', name: 'InventoryRepository');
       }
       rethrow;
+    }
+  }
+
+  Future<void> _handleSyncResponse(Response response, PenerimaanBarang penerimaan) async {
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      developer.log('Sync Success for ${penerimaan.noTerima}', name: 'InventoryRepository');
+
+      String? serverNoTerima;
+      if (response.data != null && response.data['data'] != null) {
+        serverNoTerima = response.data['data']['no_terima']?.toString();
+      }
+
+      final db = await _dbHelper.database;
+      final Map<String, dynamic> updateData = {'is_synced': 1};
+      if (serverNoTerima != null) {
+        updateData['no_terima'] = serverNoTerima;
+      }
+
+      int count = await db.update('penerimaan_barang', updateData, where: 'id = ?', whereArgs: [penerimaan.id]);
+      developer.log('Local DB update count: $count', name: 'InventoryRepository');
+    } else {
+      developer.log('Sync Failed for ${penerimaan.noTerima}: ${response.statusCode} - ${response.statusMessage}', name: 'InventoryRepository');
     }
   }
 }
