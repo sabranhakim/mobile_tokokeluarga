@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:dropdown_search/dropdown_search.dart';
+import '../../../../core/time_service.dart';
 import '../providers/inventory_provider.dart';
 import '../../data/models/barang_model.dart';
 import '../../data/models/supplier_model.dart';
@@ -37,12 +38,29 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
   @override
   void initState() {
     super.initState();
-    final dateStr = DateFormat('yyyyMMdd').format(DateTime.now());
-    final randomHex = _generateRandomHex(6);
-    _noTerimaController.text = 'TRM-$dateStr$randomHex';
+
+    final now = TimeService.instance.isInitialized
+        ? TimeService.instance.now()
+        : DateTime.now();
+    _selectedDate = now;
+    _noTerimaController.text =
+        'TRM-${DateFormat('yyyyMMdd').format(now)}${_generateRandomHex(6)}';
     _noTerimaController.addListener(_refreshDuplicateIndicator);
 
     _addItemRow();
+
+    if (!TimeService.instance.isInitialized) {
+      TimeService.instance.init().then((_) {
+        if (mounted) {
+          final serverNow = TimeService.instance.now();
+          setState(() {
+            _selectedDate = serverNow;
+          });
+          _noTerimaController.text =
+              'TRM-${DateFormat('yyyyMMdd').format(serverNow)}${_generateRandomHex(6)}';
+        }
+      });
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<InventoryProvider>().init();

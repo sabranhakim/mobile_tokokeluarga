@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../../core/api_client.dart';
+import '../../../../core/time_service.dart';
 import '../../data/models/user_model.dart';
 
 class AuthProvider extends ChangeNotifier {
@@ -80,6 +81,8 @@ class AuthProvider extends ChangeNotifier {
         _apiClient.setToken(token);
         _user = UserModel.fromJson(userData);
         _isLoggedIn = true;
+
+        TimeService.instance.init();
 
         _isLoading = false;
         notifyListeners();

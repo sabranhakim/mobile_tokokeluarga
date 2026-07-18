@@ -6,6 +6,7 @@ import '../../data/models/barang_model.dart';
 import '../../data/models/supplier_model.dart';
 import '../../data/models/penerimaan_barang_model.dart';
 import '../../data/repositories/inventory_repository.dart';
+import '../../../../core/time_service.dart';
 import 'package:intl/intl.dart';
 
 class InventoryProvider extends ChangeNotifier {
@@ -76,7 +77,7 @@ class InventoryProvider extends ChangeNotifier {
   int get totalPenerimaan => _history.length;
 
   int get penerimaanHariIni {
-    final now = DateTime.now();
+    final now = TimeService.instance.now();
     return _history
         .where(
           (e) =>
@@ -89,7 +90,7 @@ class InventoryProvider extends ChangeNotifier {
 
   // Chart Logic
   Map<String, double> getChartData(String filter) {
-    final now = DateTime.now();
+    final now = TimeService.instance.now();
     Map<String, double> data = {};
 
     if (filter == 'Minggu') {
@@ -266,5 +267,22 @@ class InventoryProvider extends ChangeNotifier {
 
     _isSyncing = false;
     notifyListeners();
+  }
+
+  Future<void> verifyPenerimaan(PenerimaanBarang penerimaan, {String? catatan}) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      await _repository.verifyPenerimaan(penerimaan, catatan: catatan);
+      debugPrint('✅ Verifikasi berhasil: ${penerimaan.noTerima}');
+      await _loadHistory();
+    } catch (e) {
+      debugPrint('❌ Error saat verifikasi: $e');
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 }

@@ -11,6 +11,8 @@ class PenerimaanBarang {
   final List<String> fotoBonPaths; // Lokasi path foto lokal (mendukung multi-foto)
   final int isSynced; // 0: Pending, 1: Berhasil
   final String statusVerifikasi; // 'pending' atau 'verified'
+  final String? catatanVerifikasi;
+  final DateTime? verifiedAt;
   final List<DetailPenerimaan> details;
 
   PenerimaanBarang({
@@ -23,6 +25,8 @@ class PenerimaanBarang {
     this.fotoBonPaths = const [],
     this.isSynced = 0,
     this.statusVerifikasi = 'pending',
+    this.catatanVerifikasi,
+    this.verifiedAt,
     this.details = const [],
   });
 
@@ -51,6 +55,10 @@ class PenerimaanBarang {
       fotoBonPaths: parsePaths(json['foto_bon_path'] ?? json['foto_bon']),
       isSynced: json['is_synced'] ?? 1,
       statusVerifikasi: json['status_verifikasi'] ?? 'pending',
+      catatanVerifikasi: json['catatan_verifikasi'],
+      verifiedAt: json['verified_at'] != null
+          ? DateTime.tryParse(json['verified_at'])
+          : null,
       details: details?.map((d) => DetailPenerimaan.fromJson(d)).toList() ?? [],
     );
   }
@@ -66,6 +74,8 @@ class PenerimaanBarang {
       'foto_bon_path': jsonEncode(fotoBonPaths),
       'is_synced': isSynced,
       'status_verifikasi': statusVerifikasi,
+      'catatan_verifikasi': catatanVerifikasi,
+      'verified_at': verifiedAt?.toIso8601String(),
     };
   }
 

@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 4, // Version bumped to cache stok_minimal
+      version: 5, // Version bumped to support verifikasi penerimaan
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < newVersion) {
@@ -74,7 +74,9 @@ class DatabaseHelper {
         tgl_terima $textType,
         foto_bon_path $textNullable,
         is_synced $intType DEFAULT 0,
-        status_verifikasi $textType DEFAULT 'pending'
+        status_verifikasi $textType DEFAULT 'pending',
+        catatan_verifikasi $textNullable,
+        verified_at $textNullable
       )
     ''');
 

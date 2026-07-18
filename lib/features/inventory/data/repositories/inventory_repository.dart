@@ -12,4 +12,8 @@ abstract class InventoryRepository {
   Future<List<PenerimaanBarang>> getPenerimaanHistoryLocal();
   Future<void> syncPenerimaan(PenerimaanBarang penerimaan);
   Future<int> getUnsyncedCount();
+
+  // Verifikasi
+  Future<void> verifyPenerimaanLocal(String id, {String? catatan});
+  Future<void> verifyPenerimaan(PenerimaanBarang penerimaan, {String? catatan});
 }

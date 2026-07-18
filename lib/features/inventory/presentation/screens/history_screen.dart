@@ -17,6 +17,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   void _showDetailModal(BuildContext context, PenerimaanBarang item) {
     final colorScheme = Theme.of(context).colorScheme;
+    final provider = Provider.of<InventoryProvider>(context, listen: false);
     final isSynced = item.isSynced == 1;
     final isVerified = item.statusVerifikasi == 'verified';
 
@@ -121,6 +122,92 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   const SizedBox(height: 4),
                   _infoRow(colorScheme, 'Status Sinkron', isSynced ? 'Tersinkron' : 'Belum Sinkron'),
 
+                  if (isSynced && !isVerified) ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.verified_user_outlined),
+                        label: const Text('Verifikasi Penerimaan'),
+                        onPressed: () async {
+                          final catatan = await _showVerifyDialog(context);
+                          if (catatan != null) {
+                            Navigator.pop(context);
+                            try {
+                              await provider.verifyPenerimaan(item, catatan: catatan);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Penerimaan berhasil diverifikasi'),
+                                    backgroundColor: Color(0xFF00851D),
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text('Gagal memverifikasi penerimaan'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+
+                  if (isVerified) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE5FFEA),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.verified_rounded, color: Color(0xFF00851D)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Terverifikasi',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF00851D),
+                                  ),
+                                ),
+                                if (item.catatanVerifikasi != null &&
+                                    item.catatanVerifikasi!.isNotEmpty)
+                                  Text(
+                                    item.catatanVerifikasi!,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF00851D),
+                                    ),
+                                  ),
+                                if (item.verifiedAt != null)
+                                  Text(
+                                    DateFormat('dd MMM yyyy • HH:mm').format(item.verifiedAt!),
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF00851D),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   const Divider(height: 32),
 
                   // Photos
@@ -214,6 +301,37 @@ class _HistoryScreenState extends State<HistoryScreen> {
         Text('$label : ', style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13)),
         Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
       ],
+    );
+  }
+
+  Future<String?> _showVerifyDialog(BuildContext context) async {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Verifikasi Penerimaan'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              labelText: 'Catatan (opsional)',
+              hintText: 'Mis. Barang sesuai bon',
+              border: OutlineInputBorder(),
+            ),
+            maxLines: 2,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+              child: const Text('Verifikasi'),
+            ),
+          ],
+        );
+      },
     );
   }
 

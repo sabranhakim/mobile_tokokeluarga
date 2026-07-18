@@ -12,6 +12,7 @@ import '../models/penerimaan_barang_model.dart';
 import '../models/supplier_model.dart';
 import 'inventory_repository.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/time_service.dart';
 
 class InventoryRepositoryImpl implements InventoryRepository {
   final ApiClient _apiClient = ApiClient.instance;
@@ -63,7 +64,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
     final db = await _dbHelper.database;
 
     String receiptId = penerimaan.id ?? _uuid.v4();
-    String noTerima = penerimaan.noTerima ?? 'TRX-${DateFormat('yyyyMMddHHmmss').format(DateTime.now())}';
+    String noTerima = penerimaan.noTerima ?? 'TRX-${DateFormat('yyyyMMddHHmmss').format(TimeService.instance.now())}';
 
     Map<String, dynamic> data = penerimaan.toMap();
     data['id'] = receiptId;
@@ -257,6 +258,47 @@ class InventoryRepositoryImpl implements InventoryRepository {
       developer.log('Local DB update count: $count', name: 'InventoryRepository');
     } else {
       developer.log('Sync Failed for ${penerimaan.noTerima}: ${response.statusCode} - ${response.statusMessage}', name: 'InventoryRepository');
+    }
+  }
+
+  @override
+  Future<void> verifyPenerimaanLocal(String id, {String? catatan}) async {
+    final db = await _dbHelper.database;
+    await db.update(
+      'penerimaan_barang',
+      {
+        'status_verifikasi': 'verified',
+        'catatan_verifikasi': catatan,
+        'verified_at': TimeService.instance.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    developer.log('Verified locally: $id', name: 'InventoryRepository');
+  }
+
+  @override
+  Future<void> verifyPenerimaan(PenerimaanBarang penerimaan, {String? catatan}) async {
+    try {
+      final response = await _apiClient.dio.post(
+        '/penerimaan-barang/${penerimaan.id}/verify',
+        data: {'catatan_verifikasi': catatan},
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        developer.log('Verify API Success for ${penerimaan.noTerima}', name: 'InventoryRepository');
+        await verifyPenerimaanLocal(penerimaan.id!, catatan: catatan);
+      }
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.sendTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+        developer.log('Verify offline — menyimpan lokal untuk sync nanti: $e', name: 'InventoryRepository');
+        await verifyPenerimaanLocal(penerimaan.id!, catatan: catatan);
+      } else {
+        developer.log('Verify API Error: ${e.response?.statusCode} — ${e.message}', name: 'InventoryRepository');
+        rethrow;
+      }
     }
   }
 }
