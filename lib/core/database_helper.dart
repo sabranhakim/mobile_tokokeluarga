@@ -19,11 +19,11 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 5, // Version bumped to support verifikasi penerimaan
+      version: 6,
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < newVersion) {
-          // Drop tables to resolve datatype mismatch and ensure clean schema
+          await db.execute('DROP TABLE IF EXISTS barang_stoks');
           await db.execute('DROP TABLE IF EXISTS detail_penerimaan');
           await db.execute('DROP TABLE IF EXISTS penerimaan_barang');
           await db.execute('DROP TABLE IF EXISTS barangs');
@@ -40,7 +40,6 @@ class DatabaseHelper {
     const intType = 'INTEGER NOT NULL';
     const intNullable = 'INTEGER';
 
-    // Suppliers Cache - id is UUID (TEXT)
     await db.execute('''
       CREATE TABLE suppliers (
         id TEXT PRIMARY KEY,
@@ -50,7 +49,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // Barangs Cache - id is UUID (TEXT)
     await db.execute('''
       CREATE TABLE barangs (
         id TEXT PRIMARY KEY,
@@ -63,7 +61,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // Penerimaan Offline
     await db.execute('''
       CREATE TABLE penerimaan_barang (
         id TEXT PRIMARY KEY,
@@ -80,7 +77,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // Detail Penerimaan Offline
     await db.execute('''
       CREATE TABLE detail_penerimaan (
         id TEXT PRIMARY KEY,
@@ -88,7 +84,22 @@ class DatabaseHelper {
         barang_id TEXT NOT NULL,
         barang_nama $textType,
         jumlah $intType,
+        batch_number $textNullable,
+        tgl_kadaluarsa $textNullable,
         FOREIGN KEY (penerimaan_barang_id) REFERENCES penerimaan_barang (id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE barang_stoks (
+        id TEXT PRIMARY KEY,
+        barang_id TEXT NOT NULL,
+        batch_number $textNullable,
+        stok $intType,
+        tgl_kadaluarsa $textNullable,
+        tgl_masuk $textType,
+        harga_beli $intType DEFAULT 0,
+        FOREIGN KEY (barang_id) REFERENCES barangs (id) ON DELETE CASCADE
       )
     ''');
   }

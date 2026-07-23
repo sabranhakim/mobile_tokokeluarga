@@ -176,6 +176,10 @@ class InventoryRepositoryImpl implements InventoryRepository {
             MapEntry('items[$i][id]', detail.id ?? _uuid.v4()),
             MapEntry('items[$i][barang_id]', detail.barangId),
             MapEntry('items[$i][jumlah]', detail.jumlah.toString()),
+            if (detail.batchNumber != null)
+              MapEntry('items[$i][batch_number]', detail.batchNumber!),
+            if (detail.tglKadaluarsa != null)
+              MapEntry('items[$i][tgl_kadaluarsa]', detail.tglKadaluarsa!),
           ]);
         }
 
@@ -213,6 +217,10 @@ class InventoryRepositoryImpl implements InventoryRepository {
               'id': detail.id ?? _uuid.v4(),
               'barang_id': detail.barangId,
               'jumlah': detail.jumlah,
+              if (detail.batchNumber != null)
+                'batch_number': detail.batchNumber,
+              if (detail.tglKadaluarsa != null)
+                'tgl_kadaluarsa': detail.tglKadaluarsa,
             };
           }).toList(),
         };

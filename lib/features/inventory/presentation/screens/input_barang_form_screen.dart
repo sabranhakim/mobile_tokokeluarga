@@ -117,6 +117,8 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
         barangId: e.barang!.id,
         barangNama: e.barang!.namaBarang,
         jumlah: e.jumlah,
+        batchNumber: e.batchNumber,
+        tglKadaluarsa: e.tglKadaluarsa,
       );
     }).toList();
   }
@@ -316,19 +318,38 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                           );
                           return Padding(
                             padding: const EdgeInsets.symmetric(vertical: 4.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: Text(
-                                    detail.barangNama,
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        detail.barangNama,
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                                      ),
+                                    ),
+                                    Text(
+                                      '${detail.jumlah.toStringAsFixed(0)} ${barang.satuan}',
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                                if (detail.batchNumber != null || detail.tglKadaluarsa != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      [
+                                        if (detail.batchNumber != null) 'Batch: ${detail.batchNumber}',
+                                        if (detail.tglKadaluarsa != null) 'Exp: ${detail.tglKadaluarsa}',
+                                      ].join(' | '),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: colorOnSurfaceVariant,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                                Text(
-                                  '${detail.jumlah.toStringAsFixed(0)} ${barang.satuan}',
-                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                                ),
                               ],
                             ),
                           );
@@ -979,7 +1000,6 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
   }
 
   Widget _buildItemTableRow(int index, List<Barang> availableBarangs) {
-    // Find the current barang in the available list to ensure exact reference match
     Barang? currentBarang;
     if (_selectedItems[index].barang != null) {
       try {
@@ -991,216 +1011,335 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
       }
     }
 
+    final item = _selectedItems[index];
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       color:
           index % 2 == 1
               ? const Color(0xFFF8F9FF).withValues(alpha: 0.5)
               : Colors.white,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // SKU Searchable Dropdown
-          Expanded(
-            flex: 5,
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8F9FF),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: colorOutlineVariant.withValues(alpha: 0.5),
-                ),
-              ),
-              child: DropdownSearch<Barang>(
-                items: availableBarangs,
-                selectedItem: currentBarang,
-                compareFn: (a, b) => a.id == b.id,
-                filterFn:
-                    (item, filter) =>
-                        item.kodeBarang.toLowerCase().contains(
-                          filter.toLowerCase(),
-                        ) ||
-                        item.namaBarang.toLowerCase().contains(
-                          filter.toLowerCase(),
-                        ),
-                onChanged:
-                    (val) => setState(() => _selectedItems[index].barang = val),
-                dropdownBuilder: (context, selectedItem) {
-                  if (selectedItem == null) {
-                    return const Text(
-                      'Pilih SKU / Nama Barang',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontStyle: FontStyle.italic,
-                        color: Colors.grey,
-                      ),
-                    );
-                  }
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        selectedItem.kodeBarang,
-                        style: TextStyle(
-                          color: colorPrimary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      Text(
-                        selectedItem.namaBarang,
-                        style: TextStyle(
-                          color: colorOnSurfaceVariant,
-                          fontSize: 13,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 2,
-                      ),
-                    ],
-                  );
-                },
-                dropdownDecoratorProps: DropDownDecoratorProps(
-                  dropdownSearchDecoration: const InputDecoration(
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    border: InputBorder.none,
-                    errorStyle: TextStyle(height: 0),
-                    isDense: true,
-                  ),
-                ),
-                popupProps: PopupProps.menu(
-                  showSearchBox: true,
-                  menuProps: MenuProps(
+          // Row 1: SKU + Qty + Delete
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                flex: 5,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8F9FF),
                     borderRadius: BorderRadius.circular(12),
-                    elevation: 4,
-                  ),
-                  searchFieldProps: TextFieldProps(
-                    decoration: InputDecoration(
-                      hintText: 'Cari baranng',
-                      prefixIcon: const Icon(Icons.search_rounded),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: colorOutlineVariant),
-                      ),
+                    border: Border.all(
+                      color: colorOutlineVariant.withValues(alpha: 0.5),
                     ),
                   ),
-                  constraints: const BoxConstraints(maxHeight: 400),
-                  itemBuilder:
-                      (context, item, isSelected) => Padding(
-                        padding: const EdgeInsets.symmetric(
+                  child: DropdownSearch<Barang>(
+                    items: availableBarangs,
+                    selectedItem: currentBarang,
+                    compareFn: (a, b) => a.id == b.id,
+                    filterFn:
+                        (item, filter) =>
+                            item.kodeBarang.toLowerCase().contains(
+                              filter.toLowerCase(),
+                            ) ||
+                            item.namaBarang.toLowerCase().contains(
+                              filter.toLowerCase(),
+                            ),
+                    onChanged: (val) =>
+                        setState(() => _selectedItems[index].barang = val),
+                    dropdownBuilder: (context, selectedItem) {
+                      if (selectedItem == null) {
+                        return const Text(
+                          'Pilih SKU / Nama Barang',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.grey,
+                          ),
+                        );
+                      }
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            selectedItem.kodeBarang,
+                            style: TextStyle(
+                              color: colorPrimary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            selectedItem.namaBarang,
+                            style: TextStyle(
+                              color: colorOnSurfaceVariant,
+                              fontSize: 13,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
+                          ),
+                        ],
+                      );
+                    },
+                    dropdownDecoratorProps: DropDownDecoratorProps(
+                      dropdownSearchDecoration: const InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 10,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              item.kodeBarang,
-                              style: TextStyle(
-                                color: colorPrimary,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              item.namaBarang,
-                              style: TextStyle(
-                                color: colorOnSurfaceVariant,
-                                fontSize: 13,
-                                height: 1.2,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 2,
-                            ),
-                          ],
+                        border: InputBorder.none,
+                        errorStyle: TextStyle(height: 0),
+                        isDense: true,
+                      ),
+                    ),
+                    popupProps: PopupProps.menu(
+                      showSearchBox: true,
+                      menuProps: MenuProps(
+                        borderRadius: BorderRadius.circular(12),
+                        elevation: 4,
+                      ),
+                      searchFieldProps: TextFieldProps(
+                        decoration: InputDecoration(
+                          hintText: 'Cari baranng',
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: colorOutlineVariant),
+                          ),
                         ),
                       ),
-                ),
-                validator: (val) => val == null ? '' : null,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-
-          // Qty Field (tanpa label)
-          SizedBox(
-            width: 75,
-            child: TextFormField(
-              initialValue:
-                  _selectedItems[index].jumlah > 0
-                      ? _selectedItems[index].jumlah.toString()
-                      : '',
-              keyboardType: TextInputType.number,
-              style: const TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: 18,
-                color: Color(0xFF00236F),
-              ),
-              textAlign: TextAlign.center,
-              decoration: InputDecoration(
-                hintText: 'Qty',
-                hintStyle: TextStyle(
-                  fontSize: 13,
-                  color: colorPrimary.withValues(alpha: 0.4),
-                  fontWeight: FontWeight.normal,
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 4,
-                  vertical: 12,
-                ),
-                isDense: true,
-                errorStyle: const TextStyle(height: 0),
-                fillColor: Colors.white,
-                filled: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(
-                    color: colorPrimary.withValues(alpha: 0.3),
+                      constraints: const BoxConstraints(maxHeight: 400),
+                      itemBuilder:
+                          (context, item, isSelected) => Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  item.kodeBarang,
+                                  style: TextStyle(
+                                    color: colorPrimary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  item.namaBarang,
+                                  style: TextStyle(
+                                    color: colorOnSurfaceVariant,
+                                    fontSize: 13,
+                                    height: 1.2,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 2,
+                                ),
+                              ],
+                            ),
+                          ),
+                    ),
+                    validator: (val) => val == null ? '' : null,
                   ),
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: colorOutlineVariant),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 65,
+                child: TextFormField(
+                  initialValue:
+                      item.jumlah > 0 ? item.jumlah.toString() : '',
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                    color: Color(0xFF00236F),
+                  ),
+                  textAlign: TextAlign.center,
+                  decoration: InputDecoration(
+                    hintText: 'Qty',
+                    hintStyle: TextStyle(
+                      fontSize: 12,
+                      color: colorPrimary.withValues(alpha: 0.4),
+                      fontWeight: FontWeight.normal,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 10,
+                    ),
+                    isDense: true,
+                    errorStyle: const TextStyle(height: 0),
+                    fillColor: Colors.white,
+                    filled: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(
+                        color: colorPrimary.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: colorOutlineVariant),
+                    ),
+                  ),
+                  onChanged: (val) {
+                    setState(() {
+                      item.jumlah = int.tryParse(val) ?? 0;
+                    });
+                  },
+                  validator:
+                      (val) => (int.tryParse(val ?? '') ?? 0) <= 0 ? '' : null,
                 ),
               ),
-              onChanged: (val) {
-                setState(() {
-                  _selectedItems[index].jumlah = int.tryParse(val) ?? 0;
-                });
-              },
-              validator:
-                  (val) => (int.tryParse(val ?? '') ?? 0) <= 0 ? '' : null,
-            ),
+              SizedBox(
+                width: 36,
+                child: IconButton(
+                  onPressed: () => _removeItemRow(index),
+                  icon: Icon(
+                    Icons.delete_outline_rounded,
+                    color: colorError.withValues(alpha: 0.6),
+                    size: 22,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 4),
+          const SizedBox(height: 8),
 
-          // Delete
-          IconButton(
-            onPressed: () => _removeItemRow(index),
-            icon: Icon(
-              Icons.delete_outline_rounded,
-              color: colorError.withValues(alpha: 0.6),
-              size: 24,
-            ),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
+          // Row 2: Batch + Expiry
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  initialValue: item.batchNumber ?? '',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  decoration: InputDecoration(
+                    hintText: 'Batch No (opsional)',
+                    hintStyle: TextStyle(
+                      fontSize: 13,
+                      color: colorOutlineVariant,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    isDense: true,
+                    filled: true,
+                    fillColor: const Color(0xFFF8F9FF),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: colorOutlineVariant),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: colorOutlineVariant),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: colorSecondary),
+                    ),
+                  ),
+                  onChanged: (val) {
+                    setState(() {
+                      item.batchNumber = val.isEmpty ? null : val;
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: InkWell(
+                  onTap: () => _selectExpiryDate(context, index),
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      hintText: 'Tgl Exp (opsional)',
+                      hintStyle: TextStyle(
+                        fontSize: 13,
+                        color: colorOutlineVariant,
+                      ),
+                      suffixIcon: Icon(
+                        Icons.calendar_today,
+                        size: 18,
+                        color: colorOnSurfaceVariant,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      isDense: true,
+                      filled: true,
+                      fillColor: const Color(0xFFF8F9FF),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: colorOutlineVariant),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: colorOutlineVariant),
+                      ),
+                    ),
+                    child: Text(
+                      item.tglKadaluarsa != null
+                          ? item.tglKadaluarsa!
+                          : '',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _selectExpiryDate(BuildContext context, int index) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().add(const Duration(days: 30)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2101),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: colorPrimary,
+              onPrimary: Colors.white,
+              onSurface: colorPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedItems[index].tglKadaluarsa =
+            DateFormat('yyyy-MM-dd').format(picked);
+      });
+    }
   }
 }
 
 class DetailPenerimaanTemp {
   Barang? barang;
   int jumlah = 0;
+  String? batchNumber;
+  String? tglKadaluarsa;
 }

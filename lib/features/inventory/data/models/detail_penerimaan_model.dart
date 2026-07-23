@@ -2,8 +2,10 @@ class DetailPenerimaan {
   final String? id;
   final String? penerimaanBarangId;
   final String barangId;
-  final String barangNama; // Optional, mempermudah tampilan offline
+  final String barangNama;
   final int jumlah;
+  final String? batchNumber;
+  final String? tglKadaluarsa;
 
   DetailPenerimaan({
     this.id,
@@ -11,6 +13,8 @@ class DetailPenerimaan {
     required this.barangId,
     required this.barangNama,
     required this.jumlah,
+    this.batchNumber,
+    this.tglKadaluarsa,
   });
 
   factory DetailPenerimaan.fromJson(Map<String, dynamic> json) {
@@ -22,6 +26,8 @@ class DetailPenerimaan {
       barangId: json['barang_id'].toString(),
       barangNama: json['barang_nama'] ?? barang?['nama_barang'] ?? '',
       jumlah: json['jumlah'],
+      batchNumber: json['batch_number'],
+      tglKadaluarsa: json['tgl_kadaluarsa'],
     );
   }
 
@@ -32,6 +38,8 @@ class DetailPenerimaan {
       'barang_id': barangId,
       'barang_nama': barangNama,
       'jumlah': jumlah,
+      'batch_number': batchNumber,
+      'tgl_kadaluarsa': tglKadaluarsa,
     };
   }
 }

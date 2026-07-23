@@ -240,6 +240,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ...item.details.asMap().entries.map((entry) {
                     final i = entry.key;
                     final d = entry.value;
+                    final batchInfo = d.batchNumber != null ? 'Batch: ${d.batchNumber}' : null;
+                    final expiryInfo = d.tglKadaluarsa != null ? 'Exp: ${d.tglKadaluarsa}' : null;
+                    final subtitle = [batchInfo, expiryInfo].where((e) => e != null).join(' | ');
                     return Container(
                       margin: const EdgeInsets.only(bottom: 6),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -268,9 +271,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: Text(
-                              d.barangNama,
-                              style: const TextStyle(fontSize: 15),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  d.barangNama,
+                                  style: const TextStyle(fontSize: 15),
+                                ),
+                                if (subtitle.isNotEmpty)
+                                  Text(
+                                    subtitle,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                           Text(
