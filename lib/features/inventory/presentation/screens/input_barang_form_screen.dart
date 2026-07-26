@@ -1047,8 +1047,12 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                             item.namaBarang.toLowerCase().contains(
                               filter.toLowerCase(),
                             ),
-                    onChanged: (val) =>
-                        setState(() => _selectedItems[index].barang = val),
+                    onChanged: (val) => setState(() {
+                      _selectedItems[index].barang = val;
+                      if (val != null && _selectedItems[index].batchNumber == null) {
+                        _selectedItems[index].batchNumber = 'BATCH-${val.kodeBarang}-${DateFormat('yyyyMMdd').format(_selectedDate)}';
+                      }
+                    }),
                     dropdownBuilder: (context, selectedItem) {
                       if (selectedItem == null) {
                         return const Text(

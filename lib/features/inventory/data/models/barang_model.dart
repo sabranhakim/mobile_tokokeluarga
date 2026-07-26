@@ -49,6 +49,7 @@ class Barang {
   final String kodeBarang;
   final String namaBarang;
   final String satuan;
+  final int isi;
   final int stok;
   final int stokMinimal;
   final int? hargaBeli;
@@ -59,6 +60,7 @@ class Barang {
     required this.kodeBarang,
     required this.namaBarang,
     required this.satuan,
+    this.isi = 1,
     required this.stok,
     this.stokMinimal = 10,
     this.hargaBeli,
@@ -76,6 +78,7 @@ class Barang {
       kodeBarang: json['kode_barang'],
       namaBarang: json['nama_barang'],
       satuan: json['satuan'],
+      isi: json['isi'] ?? 1,
       stok: json['stok'] ?? 0,
       stokMinimal: json['stok_minimal'] ?? 10,
       hargaBeli: json['harga_beli'],
@@ -89,6 +92,7 @@ class Barang {
       'kode_barang': kodeBarang,
       'nama_barang': namaBarang,
       'satuan': satuan,
+      'isi': isi,
       'stok': stok,
       'stok_minimal': stokMinimal,
       'harga_beli': hargaBeli,

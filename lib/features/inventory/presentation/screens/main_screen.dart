@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/inventory_provider.dart';
 import 'dashboard_screen.dart';
 import 'input_barang_screen.dart';
+import 'barang_keluar_form_screen.dart';
 import 'history_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -18,7 +19,6 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
-    // Ensure provider is initialized as soon as we enter MainScreen
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = Provider.of<InventoryProvider>(context, listen: false);
       provider.init();
@@ -28,6 +28,7 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _screens = [
     const DashboardScreen(),
     const InputBarangScreen(),
+    const BarangKeluarFormScreen(),
     const HistoryScreen(),
   ];
 
@@ -101,6 +102,11 @@ class _MainScreenState extends State<MainScreen> {
             icon: Icon(Icons.add_box_outlined),
             selectedIcon: Icon(Icons.add_box, color: Color(0xFF00236F)),
             label: 'Receive',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.output_outlined),
+            selectedIcon: Icon(Icons.output, color: Color(0xFF00236F)),
+            label: 'Keluar',
           ),
           NavigationDestination(
             icon: Icon(Icons.history_outlined),

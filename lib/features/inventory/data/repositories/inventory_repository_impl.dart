@@ -7,6 +7,8 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/api_client.dart';
 import '../../../../core/database_helper.dart';
 import '../models/barang_model.dart';
+import '../models/barang_keluar_model.dart';
+import '../models/detail_barang_keluar_model.dart';
 import '../models/detail_penerimaan_model.dart';
 import '../models/penerimaan_barang_model.dart';
 import '../models/supplier_model.dart';
@@ -283,6 +285,135 @@ class InventoryRepositoryImpl implements InventoryRepository {
       whereArgs: [id],
     );
     developer.log('Verified locally: $id', name: 'InventoryRepository');
+  }
+
+  // ==================== BARANG KELUAR ====================
+
+  @override
+  Future<void> saveBarangKeluarLocal(BarangKeluar barangKeluar, {bool forceSynced = false}) async {
+    final db = await _dbHelper.database;
+
+    String id = barangKeluar.id ?? _uuid.v4();
+    String noKeluar = barangKeluar.noKeluar ?? 'KLR-${DateFormat('yyyyMMddHHmmss').format(TimeService.instance.now())}';
+
+    Map<String, dynamic> data = barangKeluar.toMap();
+    data['id'] = id;
+    data['no_keluar'] = noKeluar;
+    if (forceSynced) {
+      data['is_synced'] = 1;
+    }
+
+    await db.transaction((txn) async {
+      await txn.insert('barang_keluar', data, conflictAlgorithm: ConflictAlgorithm.replace);
+      await txn.delete('detail_barang_keluar', where: 'barang_keluar_id = ?', whereArgs: [id]);
+
+      for (var detail in barangKeluar.details) {
+        String detailId = detail.id ?? _uuid.v4();
+        await txn.insert('detail_barang_keluar', {
+          ...detail.toMap(),
+          'id': detailId,
+          'barang_keluar_id': id,
+        });
+      }
+    });
+  }
+
+  @override
+  Future<List<BarangKeluar>> getBarangKeluarHistoryLocal() async {
+    List<BarangKeluar> apiHistory = [];
+    bool apiSuccess = false;
+
+    try {
+      final response = await _apiClient.dio.get('/barang-keluar');
+      if (response.statusCode == 200) {
+        final List data = response.data['data'];
+        apiHistory = data.map((e) => BarangKeluar.fromJson(e)).toList();
+        apiSuccess = true;
+        developer.log('Fetched ${apiHistory.length} barang keluar from API', name: 'InventoryRepository');
+      }
+    } catch (e) {
+      developer.log('Fetch Barang Keluar API Error: $e', name: 'InventoryRepository');
+    }
+
+    final db = await _dbHelper.database;
+    List<BarangKeluar> localItems = [];
+    try {
+      final localMaps = await (apiSuccess
+        ? db.query('barang_keluar', where: 'is_synced = 0', orderBy: 'tgl_keluar DESC')
+        : db.query('barang_keluar', orderBy: 'tgl_keluar DESC')
+      );
+
+      for (var map in localMaps) {
+        final detailsMap = await db.query(
+          'detail_barang_keluar',
+          where: 'barang_keluar_id = ?',
+          whereArgs: [map['id']],
+        );
+        final details = detailsMap.map((d) => DetailBarangKeluar.fromJson(d)).toList();
+        final isSynced = map['is_synced'] ?? 0;
+        localItems.add(BarangKeluar.fromJson({
+          ...map,
+          'details': details,
+          'is_synced': isSynced,
+        }));
+      }
+      developer.log('Found ${localItems.length} barang keluar in Local DB', name: 'InventoryRepository');
+    } catch (e) {
+      developer.log('Error loading local barang keluar: $e', name: 'InventoryRepository');
+    }
+
+    return [...localItems, ...apiHistory];
+  }
+
+  @override
+  Future<void> syncBarangKeluar(BarangKeluar barangKeluar) async {
+    try {
+      final body = {
+        'id': barangKeluar.id,
+        'tgl_keluar': DateFormat('yyyy-MM-dd').format(barangKeluar.tglKeluar),
+        'keterangan': barangKeluar.keterangan,
+        'items': barangKeluar.details.asMap().entries.map((entry) {
+          final detail = entry.value;
+          return {
+            'id': detail.id ?? _uuid.v4(),
+            'barang_id': detail.barangId,
+            'jumlah': detail.jumlah,
+          };
+        }).toList(),
+      };
+
+      developer.log('Syncing ${barangKeluar.noKeluar} to server...', name: 'InventoryRepository');
+      final response = await _apiClient.dio.post('/barang-keluar', data: body);
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        developer.log('Sync Success for ${barangKeluar.noKeluar}', name: 'InventoryRepository');
+        String? serverNoKeluar;
+        if (response.data != null && response.data['data'] != null) {
+          serverNoKeluar = response.data['data']['no_keluar']?.toString();
+        }
+
+        final db = await _dbHelper.database;
+        final Map<String, dynamic> updateData = {'is_synced': 1};
+        if (serverNoKeluar != null) {
+          updateData['no_keluar'] = serverNoKeluar;
+        }
+        await db.update('barang_keluar', updateData, where: 'id = ?', whereArgs: [barangKeluar.id]);
+      }
+    } catch (e) {
+      if (e is DioException) {
+        developer.log('Sync Barang Keluar Exception: ${e.response?.statusCode} - ${e.message}', name: 'InventoryRepository');
+      } else {
+        developer.log('Sync Barang Keluar Unknown Error: $e', name: 'InventoryRepository');
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<int> getUnsyncedBarangKeluarCount() async {
+    final db = await _dbHelper.database;
+    final result = await db.rawQuery('SELECT COUNT(*) FROM barang_keluar WHERE is_synced = 0');
+    return Sqflite.firstIntValue(result) ?? 0;
   }
 
   @override
