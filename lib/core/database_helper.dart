@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 6) {
@@ -55,6 +55,9 @@ class DatabaseHelper {
           await db.execute('ALTER TABLE barangs ADD COLUMN isi INTEGER DEFAULT 1');
           await db.execute('ALTER TABLE detail_barang_keluar ADD COLUMN barang_satuan TEXT');
           await db.execute('ALTER TABLE detail_barang_keluar ADD COLUMN barang_isi INTEGER DEFAULT 1');
+        }
+        if (oldVersion < 9) {
+          await db.execute("ALTER TABLE barang_keluar ADD COLUMN jenis_keluar TEXT DEFAULT 'penjualan'");
         }
       },
     );
@@ -123,6 +126,7 @@ class DatabaseHelper {
         no_keluar TEXT,
         user_id INTEGER,
         tgl_keluar $textType,
+        jenis_keluar TEXT DEFAULT 'penjualan',
         keterangan $textNullable,
         is_synced $intType DEFAULT 0
       )

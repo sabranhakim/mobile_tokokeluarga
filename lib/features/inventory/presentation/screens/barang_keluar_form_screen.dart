@@ -18,6 +18,7 @@ class BarangKeluarFormScreen extends StatefulWidget {
 class _BarangKeluarFormScreenState extends State<BarangKeluarFormScreen> {
   final _formKey = GlobalKey<FormState>();
   DateTime _selectedDate = DateTime.now();
+  String _jenisKeluar = 'penjualan';
   final _keteranganController = TextEditingController();
   final List<DetailBarangKeluarTemp> _selectedItems = [];
 
@@ -72,8 +73,20 @@ class _BarangKeluarFormScreenState extends State<BarangKeluarFormScreen> {
     });
   }
 
-  List<DetailBarangKeluar> _currentValidDetails() {
-    return _selectedItems.where((e) => e.barang != null && e.jumlah > 0).map((e) {
+  String get _jenisKeluarLabel {
+    switch (_jenisKeluar) {
+      case 'kerusakan':
+        return 'Kerusakan';
+      case 'kadaluarsa':
+        return 'Kadaluarsa';
+      case 'pemakaian_internal':
+        return 'Pemakaian Internal';
+      default:
+        return 'Penjualan';
+    }
+  }
+
+  List<DetailBarangKeluar> _currentValidDetails() {    return _selectedItems.where((e) => e.barang != null && e.jumlah > 0).map((e) {
       return DetailBarangKeluar(
         barangId: e.barang!.id,
         barangNama: e.barang!.namaBarang,
@@ -150,6 +163,7 @@ class _BarangKeluarFormScreenState extends State<BarangKeluarFormScreen> {
                   const Text('Mohon periksa kembali data sebelum menyimpan.', style: TextStyle(color: Colors.grey, fontSize: 12)),
                   const SizedBox(height: 16),
                   _buildPreviewRow('Tanggal', DateFormat('dd MMMM yyyy').format(_selectedDate)),
+                  _buildPreviewRow('Jenis', _jenisKeluarLabel),
                   if (_keteranganController.text.isNotEmpty)
                     _buildPreviewRow('Keterangan', _keteranganController.text),
                   const SizedBox(height: 12),
@@ -315,6 +329,7 @@ class _BarangKeluarFormScreenState extends State<BarangKeluarFormScreen> {
 
     final barangKeluar = BarangKeluar(
       tglKeluar: _selectedDate,
+      jenisKeluar: _jenisKeluar,
       keterangan: _keteranganController.text.isNotEmpty ? _keteranganController.text : null,
       details: details,
     );
@@ -415,6 +430,25 @@ class _BarangKeluarFormScreenState extends State<BarangKeluarFormScreen> {
                           ),
                           child: Text(DateFormat('yyyy-MM-dd').format(_selectedDate), style: const TextStyle(fontWeight: FontWeight.w500)),
                         ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildInputField(
+                      label: 'Jenis Keluar',
+                      child: DropdownButtonFormField<String>(
+                        value: _jenisKeluar,
+                        items: const [
+                          DropdownMenuItem(value: 'penjualan', child: Text('Penjualan')),
+                          DropdownMenuItem(value: 'kerusakan', child: Text('Kerusakan')),
+                          DropdownMenuItem(value: 'kadaluarsa', child: Text('Kadaluarsa')),
+                          DropdownMenuItem(value: 'pemakaian_internal', child: Text('Pemakaian Internal')),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() => _jenisKeluar = value);
+                          }
+                        },
+                        decoration: _inputDecoration(''),
                       ),
                     ),
                     const SizedBox(height: 16),

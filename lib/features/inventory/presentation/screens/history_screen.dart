@@ -322,6 +322,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
+  String _jenisKeluarLabel(String? jenis) {
+    switch (jenis) {
+      case 'kerusakan':
+        return 'Kerusakan';
+      case 'kadaluarsa':
+        return 'Kadaluarsa';
+      case 'pemakaian_internal':
+        return 'Pemakaian Internal';
+      default:
+        return 'Penjualan';
+    }
+  }
+
   Future<String?> _showVerifyDialog(BuildContext context) async {
     final controller = TextEditingController();
     return showDialog<String>(
@@ -413,6 +426,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     _infoRow(colorScheme, 'No. Keluar', item.noKeluar!),
                     const SizedBox(height: 4),
                   ],
+                  _infoRow(colorScheme, 'Jenis', _jenisKeluarLabel(item.jenisKeluar)),
+                  const SizedBox(height: 4),
                   _infoRow(colorScheme, 'Total Item', '${item.details.length} barang'),
                   const SizedBox(height: 4),
                   if (item.keterangan != null && item.keterangan!.isNotEmpty) ...[

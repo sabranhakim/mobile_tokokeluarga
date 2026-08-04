@@ -371,6 +371,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
       final body = {
         'id': barangKeluar.id,
         'tgl_keluar': DateFormat('yyyy-MM-dd').format(barangKeluar.tglKeluar),
+        'jenis_keluar': barangKeluar.jenisKeluar ?? 'penjualan',
         'keterangan': barangKeluar.keterangan,
         'items': barangKeluar.details.asMap().entries.map((entry) {
           final detail = entry.value;

@@ -5,6 +5,7 @@ class BarangKeluar {
   final String? noKeluar;
   final int? userId;
   final DateTime tglKeluar;
+  final String? jenisKeluar;
   final String? keterangan;
   final int isSynced;
   final List<DetailBarangKeluar> details;
@@ -14,6 +15,7 @@ class BarangKeluar {
     this.noKeluar,
     this.userId,
     required this.tglKeluar,
+    this.jenisKeluar = 'penjualan',
     this.keterangan,
     this.isSynced = 0,
     this.details = const [],
@@ -27,6 +29,7 @@ class BarangKeluar {
       noKeluar: json['no_keluar'],
       userId: json['user_id'],
       tglKeluar: DateTime.parse(json['tgl_keluar']),
+      jenisKeluar: json['jenis_keluar'] ?? 'penjualan',
       keterangan: json['keterangan'],
       isSynced: json['is_synced'] ?? 1,
       details: details?.map((d) => DetailBarangKeluar.fromJson(d)).toList() ?? [],
@@ -39,6 +42,7 @@ class BarangKeluar {
       'no_keluar': noKeluar,
       'user_id': userId,
       'tgl_keluar': tglKeluar.toIso8601String(),
+      'jenis_keluar': jenisKeluar ?? 'penjualan',
       'keterangan': keterangan,
       'is_synced': isSynced,
     };
