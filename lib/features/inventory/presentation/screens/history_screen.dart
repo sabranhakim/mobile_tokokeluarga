@@ -460,20 +460,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(d.barangNama, style: const TextStyle(fontSize: 15)),
-                                if (d.barangIsi > 1 && d.jumlah >= d.barangIsi)
-                                  Text(
-                                    '${d.jumlah ~/ d.barangIsi} ${d.barangSatuan ?? ''}${d.jumlah % d.barangIsi > 0 ? ' + ${d.jumlah % d.barangIsi} pcs' : ''}',
-                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                  ),
                               ],
                             ),
                           ),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Text('${d.jumlah}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                              if (d.barangIsi > 1 && d.jumlah >= d.barangIsi)
-                                Text('pcs', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                              Text('${d.jumlah} ${d.barangSatuan ?? ''}'.trim(), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
                             ],
                           ),
                         ],

@@ -139,7 +139,7 @@ class _BarangKeluarFormScreenState extends State<BarangKeluarFormScreen> {
     return warnings;
   }
 
-  Future<bool> _showPreviewDialog(List<DetailBarangKeluar> details, InventoryProvider provider) async {
+  Future<bool> _showPreviewDialog(List<DetailBarangKeluar> details) async {
     final double totalQty = details.fold<double>(0, (sum, item) => sum + item.jumlah);
 
     final result = await showDialog<bool>(
@@ -181,16 +181,6 @@ class _BarangKeluarFormScreenState extends State<BarangKeluarFormScreen> {
                     child: Column(
                       children: [
                         ...details.map((detail) {
-                          final barang = provider.barangs.firstWhere(
-                            (b) => b.id == detail.barangId,
-                            orElse: () => Barang(id: '', kodeBarang: '', namaBarang: detail.barangNama, satuan: '', stok: 0),
-                          );
-                          final isi = barang.isi;
-                          int? kemasan, sisaPcs;
-                          if (isi > 1 && detail.jumlah >= isi) {
-                            kemasan = detail.jumlah ~/ isi;
-                            sisaPcs = detail.jumlah % isi;
-                          }
                           return Padding(
                             padding: const EdgeInsets.symmetric(vertical: 4.0),
                             child: Row(
@@ -199,18 +189,9 @@ class _BarangKeluarFormScreenState extends State<BarangKeluarFormScreen> {
                                 Expanded(
                                   child: Text(detail.barangNama, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                                 ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text('${detail.jumlah} pcs', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                                    if (kemasan != null)
-                                      Text(
-                                        sisaPcs != null && sisaPcs > 0
-                                            ? '$kemasan ${barang.satuan} + $sisaPcs pcs'
-                                            : '$kemasan ${barang.satuan}',
-                                        style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                      ),
-                                  ],
+                                Text(
+                                  '${detail.jumlah} ${detail.barangSatuan}'.trim(),
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
@@ -326,7 +307,7 @@ class _BarangKeluarFormScreenState extends State<BarangKeluarFormScreen> {
       if (!shouldContinue) return;
     }
 
-    final shouldSave = await _showPreviewDialog(details, provider);
+    final shouldSave = await _showPreviewDialog(details);
     if (!shouldSave) return;
 
     final barangKeluar = BarangKeluar(
@@ -736,11 +717,6 @@ class _BarangKeluarFormScreenState extends State<BarangKeluarFormScreen> {
                   ),
                 ),
               ),
-              if (currentBarang != null && currentBarang.isi > 1)
-                Text(
-                  '1 ${currentBarang.satuan} = ${currentBarang.isi} pcs',
-                  style: const TextStyle(fontSize: 9, color: Colors.grey),
-                ),
             ],
           ),
           SizedBox(
