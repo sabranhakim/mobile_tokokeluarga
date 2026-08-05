@@ -29,6 +29,7 @@ class DatabaseHelper {
           await db.execute('DROP TABLE IF EXISTS barangs');
           await db.execute('DROP TABLE IF EXISTS suppliers');
           await _createDB(db, newVersion);
+          return;
         } else if (oldVersion < 7) {
           await db.execute('''
             CREATE TABLE IF NOT EXISTS barang_keluar (
@@ -52,15 +53,28 @@ class DatabaseHelper {
           ''');
         }
         if (oldVersion < 8) {
-          await db.execute('ALTER TABLE barangs ADD COLUMN isi INTEGER DEFAULT 1');
-          await db.execute('ALTER TABLE detail_barang_keluar ADD COLUMN barang_satuan TEXT');
-          await db.execute('ALTER TABLE detail_barang_keluar ADD COLUMN barang_isi INTEGER DEFAULT 1');
+          await _addColumnIfMissing(db, 'barangs', 'isi', 'INTEGER DEFAULT 1');
+          await _addColumnIfMissing(db, 'detail_barang_keluar', 'barang_satuan', 'TEXT');
+          await _addColumnIfMissing(db, 'detail_barang_keluar', 'barang_isi', 'INTEGER DEFAULT 1');
         }
         if (oldVersion < 9) {
-          await db.execute("ALTER TABLE barang_keluar ADD COLUMN jenis_keluar TEXT DEFAULT 'penjualan'");
+          await _addColumnIfMissing(db, 'barang_keluar', 'jenis_keluar', "TEXT DEFAULT 'penjualan'");
         }
       },
     );
+  }
+
+  Future<void> _addColumnIfMissing(
+    Database db,
+    String table,
+    String column,
+    String type,
+  ) async {
+    final cols = await db.rawQuery('PRAGMA table_info($table)');
+    final exists = cols.any((c) => c['name'] == column);
+    if (!exists) {
+      await db.execute('ALTER TABLE $table ADD COLUMN $column $type');
+    }
   }
 
   Future _createDB(Database db, int version) async {

@@ -2,6 +2,11 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 class ApiClient {
+  static const String apiUrl = String.fromEnvironment(
+    'API_URL',
+    defaultValue: 'http://10.180.80.26:8000/api/v1',
+  );
+
   static final ApiClient instance = ApiClient._init();
   late Dio dio;
   VoidCallback? onUnauthorized;
@@ -9,7 +14,7 @@ class ApiClient {
   ApiClient._init() {
     dio = Dio(
       BaseOptions(
-        baseUrl: 'http://10.69.198.163:8000/api/v1',
+        baseUrl: apiUrl,
         connectTimeout: const Duration(seconds: 15),
         receiveTimeout: const Duration(seconds: 15),
         headers: {

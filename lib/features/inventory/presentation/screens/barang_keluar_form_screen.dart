@@ -9,7 +9,9 @@ import '../../data/models/barang_keluar_model.dart';
 import '../../data/models/detail_barang_keluar_model.dart';
 
 class BarangKeluarFormScreen extends StatefulWidget {
-  const BarangKeluarFormScreen({super.key});
+  const BarangKeluarFormScreen({super.key, this.onSaved});
+
+  final VoidCallback? onSaved;
 
   @override
   State<BarangKeluarFormScreen> createState() => _BarangKeluarFormScreenState();
@@ -337,7 +339,8 @@ class _BarangKeluarFormScreenState extends State<BarangKeluarFormScreen> {
     await provider.submitBarangKeluar(barangKeluar);
 
     if (mounted) {
-      Navigator.popUntil(context, (route) => route.isFirst);
+      _resetForm();
+      widget.onSaved?.call();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Barang keluar berhasil dicatat dan stok telah diperbarui'),
@@ -346,6 +349,20 @@ class _BarangKeluarFormScreenState extends State<BarangKeluarFormScreen> {
         ),
       );
     }
+  }
+
+  void _resetForm() {
+    _keteranganController.clear();
+    _formKey.currentState?.reset();
+    setState(() {
+      _selectedDate = TimeService.instance.isInitialized
+          ? TimeService.instance.now()
+          : DateTime.now();
+      _jenisKeluar = 'penjualan';
+      _selectedItems
+        ..clear()
+        ..add(DetailBarangKeluarTemp());
+    });
   }
 
   Future<bool> _confirmDuplicateRisk(List<String> warnings) async {

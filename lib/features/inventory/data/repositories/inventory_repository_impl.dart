@@ -49,15 +49,36 @@ class InventoryRepositoryImpl implements InventoryRepository {
       final barangs = data.map((e) => Barang.fromJson(e)).toList();
 
       final db = await _dbHelper.database;
-      await db.delete('barangs');
-      for (var b in barangs) {
-        await db.insert('barangs', b.toJson());
-      }
+      await db.transaction((txn) async {
+        await txn.delete('barangs');
+        await txn.delete('barang_stoks');
+        for (var b in barangs) {
+          final json = b.toJson()..remove('barang_stoks');
+          await txn.insert('barangs', json);
+          for (var stok in b.barangStoks) {
+            await txn.insert('barang_stoks', stok.toJson());
+          }
+        }
+      });
       return barangs;
     } catch (e) {
       final db = await _dbHelper.database;
       final List<Map<String, dynamic>> maps = await db.query('barangs');
-      return maps.map((e) => Barang.fromJson(e)).toList();
+      final result = <Barang>[];
+      for (var map in maps) {
+        final stokMaps = await db.query(
+          'barang_stoks',
+          where: 'barang_id = ?',
+          whereArgs: [map['id']],
+        );
+        result.add(
+          Barang.fromJson({
+            ...map,
+            'barang_stoks': stokMaps,
+          }),
+        );
+      }
+      return result;
     }
   }
 

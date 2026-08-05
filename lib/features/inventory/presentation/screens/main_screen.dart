@@ -15,22 +15,22 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
+  late final List<Widget> _screens;
 
   @override
   void initState() {
     super.initState();
+    _screens = [
+      const DashboardScreen(),
+      const InputBarangScreen(),
+      BarangKeluarFormScreen(onSaved: () => _onItemTapped(0)),
+      const HistoryScreen(),
+    ];
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = Provider.of<InventoryProvider>(context, listen: false);
       provider.init();
     });
   }
-
-  final List<Widget> _screens = [
-    const DashboardScreen(),
-    const InputBarangScreen(),
-    const BarangKeluarFormScreen(),
-    const HistoryScreen(),
-  ];
 
   void _onItemTapped(int index) {
     setState(() {
