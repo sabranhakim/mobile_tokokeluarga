@@ -317,7 +317,19 @@ class _BarangKeluarFormScreenState extends State<BarangKeluarFormScreen> {
       details: details,
     );
 
-    await provider.submitBarangKeluar(barangKeluar);
+    try {
+      await provider.submitBarangKeluar(barangKeluar);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Gagal terhubung ke server. Data tidak tersimpan.'),
+            backgroundColor: colorError,
+          ),
+        );
+      }
+      return;
+    }
 
     if (mounted) {
       _resetForm();

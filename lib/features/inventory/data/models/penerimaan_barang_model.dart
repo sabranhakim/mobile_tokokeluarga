@@ -8,8 +8,7 @@ class PenerimaanBarang {
   final String supplierNama; // Optional, untuk mempermudah tampilan offline
   final int? userId;
   final DateTime tglTerima;
-  final List<String> fotoBonPaths; // Lokasi path foto lokal (mendukung multi-foto)
-  final int isSynced; // 0: Pending, 1: Berhasil
+  final List<String> fotoBonPaths; // Lokasi path foto (mendukung multi-foto)
   final String statusVerifikasi; // 'pending' atau 'verified'
   final String? catatanVerifikasi;
   final DateTime? verifiedAt;
@@ -23,7 +22,6 @@ class PenerimaanBarang {
     this.userId,
     required this.tglTerima,
     this.fotoBonPaths = const [],
-    this.isSynced = 0,
     this.statusVerifikasi = 'pending',
     this.catatanVerifikasi,
     this.verifiedAt,
@@ -53,7 +51,6 @@ class PenerimaanBarang {
       userId: json['user_id'],
       tglTerima: DateTime.parse(json['tgl_terima']),
       fotoBonPaths: parsePaths(json['foto_bon_path'] ?? json['foto_bon']),
-      isSynced: json['is_synced'] ?? 1,
       statusVerifikasi: json['status_verifikasi'] ?? 'pending',
       catatanVerifikasi: json['catatan_verifikasi'],
       verifiedAt: json['verified_at'] != null
@@ -72,7 +69,6 @@ class PenerimaanBarang {
       'user_id': userId,
       'tgl_terima': tglTerima.toIso8601String(),
       'foto_bon_path': jsonEncode(fotoBonPaths),
-      'is_synced': isSynced,
       'status_verifikasi': statusVerifikasi,
       'catatan_verifikasi': catatanVerifikasi,
       'verified_at': verifiedAt?.toIso8601String(),

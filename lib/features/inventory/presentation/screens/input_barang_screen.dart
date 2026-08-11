@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'camera_screen.dart';
-import '../providers/inventory_provider.dart';
 
 class InputBarangScreen extends StatelessWidget {
   const InputBarangScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<InventoryProvider>();
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Input Penerimaan'),
@@ -34,17 +30,8 @@ class InputBarangScreen extends StatelessWidget {
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 48),
-            
-            if (provider.isSyncing)
-              const Column(
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Sedang menyinkronkan data...'),
-                ],
-              )
-            else
-              ElevatedButton.icon(
+
+            ElevatedButton.icon(
                 onPressed: () {
                   Navigator.push(
                     context,
@@ -61,7 +48,6 @@ class InputBarangScreen extends StatelessWidget {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
               ),
-            
           ],
         ),
       ),

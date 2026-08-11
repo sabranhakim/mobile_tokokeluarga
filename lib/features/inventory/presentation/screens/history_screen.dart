@@ -14,24 +14,18 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  String _selectedFilter = 'Semua';
   int _selectedTab = 0; // 0 = Penerimaan, 1 = Barang Keluar
 
   void _showDetailModal(BuildContext context, PenerimaanBarang item) {
     final colorScheme = Theme.of(context).colorScheme;
     final provider = Provider.of<InventoryProvider>(context, listen: false);
-    final isSynced = item.isSynced == 1;
     final isVerified = item.statusVerifikasi == 'verified';
 
     String statusText;
     Color badgeBgColor;
     Color badgeTextColor;
 
-    if (!isSynced) {
-      badgeBgColor = colorScheme.errorContainer;
-      badgeTextColor = colorScheme.error;
-      statusText = 'PENDING SYNC';
-    } else if (isVerified) {
+    if (isVerified) {
       badgeBgColor = const Color(0xFFE5FFEA);
       badgeTextColor = const Color(0xFF00851D);
       statusText = 'TERVERIFIKASI';
@@ -121,10 +115,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     const SizedBox(height: 4),
                   ],
                   _infoRow(colorScheme, 'Total Item', '${item.details.length} barang'),
-                  const SizedBox(height: 4),
-                  _infoRow(colorScheme, 'Status Sinkron', isSynced ? 'Tersinkron' : 'Belum Sinkron'),
 
-                  if (isSynced && !isVerified) ...[
+                  if (!isVerified) ...[
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
@@ -133,27 +125,27 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         label: const Text('Verifikasi Penerimaan'),
                         onPressed: () async {
                           final catatan = await _showVerifyDialog(context);
-                          if (catatan != null) {
-                            Navigator.pop(context);
-                            try {
-                              await provider.verifyPenerimaan(item, catatan: catatan);
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Penerimaan berhasil diverifikasi'),
-                                    backgroundColor: Color(0xFF00851D),
-                                  ),
-                                );
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: const Text('Gagal memverifikasi penerimaan'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
+                          if (catatan == null) return;
+                          if (!context.mounted) return;
+                          Navigator.pop(context);
+                          try {
+                            await provider.verifyPenerimaan(item, catatan: catatan);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Penerimaan berhasil diverifikasi'),
+                                  backgroundColor: Color(0xFF00851D),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text('Gagal memverifikasi penerimaan'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
                             }
                           }
                         },
@@ -368,7 +360,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   void _showBarangKeluarDetailModal(BuildContext context, BarangKeluar item) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isSynced = item.isSynced == 1;
 
     showModalBottomSheet(
       context: context,
@@ -406,17 +397,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             const SizedBox(height: 4),
                             Text(DateFormat('dd MMM yyyy').format(item.tglKeluar), style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14)),
                           ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: isSynced ? const Color(0xFFE5FFEA) : colorScheme.errorContainer,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          isSynced ? 'TERSINKRON' : 'PENDING SYNC',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isSynced ? const Color(0xFF00851D) : colorScheme.error),
                         ),
                       ),
                     ],
@@ -519,70 +499,33 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
         ),
       ),
-      body: Column(
-        children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children:
-                  ['Semua', 'Sudah Sync', 'Belum Sync'].map((filter) {
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: ChoiceChip(
-                        label: Text(filter),
-                        selected: _selectedFilter == filter,
-                        onSelected: (selected) {
-                          if (selected) setState(() => _selectedFilter = filter);
-                        },
-                      ),
-                    );
-                  }).toList(),
-            ),
-          ),
-          Expanded(
-            child: _selectedTab == 0
-                ? _buildPenerimaanHistory(colorScheme)
-                : _buildBarangKeluarHistory(colorScheme),
-          ),
-        ],
-      ),
+      body: _selectedTab == 0
+          ? _buildPenerimaanHistory(colorScheme)
+          : _buildBarangKeluarHistory(colorScheme),
     );
   }
 
   Widget _buildPenerimaanHistory(ColorScheme colorScheme) {
     return Consumer<InventoryProvider>(
       builder: (context, provider, child) {
-        final filteredHistory = provider.history.where((item) {
-          if (_selectedFilter == 'Sudah Sync') return item.isSynced == 1;
-          if (_selectedFilter == 'Belum Sync') return item.isSynced == 0;
-          return true;
-        }).toList();
+        final history = provider.history;
 
-        if (filteredHistory.isEmpty) {
-          return _buildEmptyState(colorScheme, provider.unsyncedCount, provider.isSyncing, () => provider.syncData());
+        if (history.isEmpty) {
+          return _buildEmptyState(colorScheme);
         }
 
         return RefreshIndicator(
           onRefresh: () => provider.init(),
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: filteredHistory.length + (_selectedFilter == 'Belum Sync' ? 1 : 0),
+            itemCount: history.length,
             itemBuilder: (context, index) {
-              if (_selectedFilter == 'Belum Sync' && index == 0) {
-                return _buildSyncCard(colorScheme, provider.unsyncedCount, provider.isSyncing, () => provider.syncData());
-              }
-              final adjustedIndex = _selectedFilter == 'Belum Sync' ? index - 1 : index;
-              final item = filteredHistory[adjustedIndex];
-              final isSynced = item.isSynced == 1;
+              final item = history[index];
               final isVerified = item.statusVerifikasi == 'verified';
 
               Color badgeBgColor, badgeTextColor; String statusText; IconData statusIcon; Color iconColor, iconBgColor;
 
-              if (!isSynced) {
-                badgeBgColor = colorScheme.errorContainer; badgeTextColor = colorScheme.error; statusText = 'PENDING SYNC';
-                statusIcon = Icons.sync_problem_rounded; iconColor = colorScheme.error; iconBgColor = colorScheme.errorContainer;
-              } else if (isVerified) {
+              if (isVerified) {
                 badgeBgColor = const Color(0xFFE5FFEA); badgeTextColor = const Color(0xFF00851D); statusText = 'TERVERIFIKASI';
                 statusIcon = Icons.verified_rounded; iconColor = const Color(0xFF00851D); iconBgColor = const Color(0xFFE5FFEA);
               } else {
@@ -628,36 +571,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget _buildBarangKeluarHistory(ColorScheme colorScheme) {
     return Consumer<InventoryProvider>(
       builder: (context, provider, child) {
-        final filteredHistory = provider.barangKeluarHistory.where((item) {
-          if (_selectedFilter == 'Sudah Sync') return item.isSynced == 1;
-          if (_selectedFilter == 'Belum Sync') return item.isSynced == 0;
-          return true;
-        }).toList();
+        final history = provider.barangKeluarHistory;
 
-        if (filteredHistory.isEmpty) {
-          return _buildEmptyState(colorScheme, provider.unsyncedBarangKeluarCount, provider.isSyncing, () => provider.syncData());
+        if (history.isEmpty) {
+          return _buildEmptyState(colorScheme);
         }
 
         return RefreshIndicator(
           onRefresh: () => provider.init(),
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: filteredHistory.length + (_selectedFilter == 'Belum Sync' ? 1 : 0),
+            itemCount: history.length,
             itemBuilder: (context, index) {
-              if (_selectedFilter == 'Belum Sync' && index == 0) {
-                return _buildSyncCard(colorScheme, provider.unsyncedBarangKeluarCount, provider.isSyncing, () => provider.syncData());
-              }
-              final adjustedIndex = _selectedFilter == 'Belum Sync' ? index - 1 : index;
-              final item = filteredHistory[adjustedIndex];
-              final isSynced = item.isSynced == 1;
-
-              Color badgeBgColor, badgeTextColor; String statusText;
-
-              if (!isSynced) {
-                badgeBgColor = colorScheme.errorContainer; badgeTextColor = colorScheme.error; statusText = 'PENDING SYNC';
-              } else {
-                badgeBgColor = const Color(0xFFE5FFEA); badgeTextColor = const Color(0xFF00851D); statusText = 'TERSINKRON';
-              }
+              final item = history[index];
 
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -676,12 +602,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             Text(DateFormat('dd MMM yyyy').format(item.tglKeluar), style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13)),
                           ]),
                         ),
-                        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                          Text('${item.details.length} Item', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: colorScheme.onSurface)),
-                          const SizedBox(height: 4),
-                          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: badgeBgColor, borderRadius: BorderRadius.circular(6)),
-                            child: Text(statusText, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: badgeTextColor))),
-                        ]),
+                        Text('${item.details.length} Item', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: colorScheme.onSurface)),
                       ],
                     ),
                   ),
@@ -694,7 +615,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  Widget _buildEmptyState(ColorScheme colorScheme, int count, bool isSyncing, VoidCallback onSync) {
+  Widget _buildEmptyState(ColorScheme colorScheme) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -702,42 +623,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           Icon(Icons.history_toggle_off_rounded, size: 64, color: colorScheme.outline.withValues(alpha: 0.5)),
           const SizedBox(height: 16),
           Text('Tidak ada riwayat ditemukan', style: TextStyle(color: colorScheme.outline)),
-          if (_selectedFilter == 'Belum Sync' && count > 0) ...[
-            const SizedBox(height: 24),
-            FilledButton.tonalIcon(
-              onPressed: isSyncing ? null : onSync,
-              icon: isSyncing ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.sync),
-              label: Text(isSyncing ? 'Menyinkronkan...' : 'Sinkronkan Sekarang'),
-            ),
-          ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildSyncCard(ColorScheme colorScheme, int count, bool isSyncing, VoidCallback onSync) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(width: 48, height: 48, decoration: BoxDecoration(color: colorScheme.primaryContainer, borderRadius: BorderRadius.circular(12)),
-              child: Icon(Icons.cloud_upload, color: colorScheme.primary)),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Sinkronkan $count data', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                const SizedBox(height: 4),
-                Text('Kirim data yang belum tersinkron ke server', style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13)),
-              ]),
-            ),
-            FilledButton.tonal(
-              onPressed: isSyncing ? null : onSync,
-              child: isSyncing ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.sync),
-            ),
-          ],
-        ),
       ),
     );
   }

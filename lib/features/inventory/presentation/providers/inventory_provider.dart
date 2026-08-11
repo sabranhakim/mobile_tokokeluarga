@@ -1,6 +1,4 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:uuid/uuid.dart';
 import '../../data/models/barang_model.dart';
 import '../../data/models/barang_keluar_model.dart';
@@ -13,38 +11,8 @@ import 'package:intl/intl.dart';
 class InventoryProvider extends ChangeNotifier {
   final InventoryRepository _repository;
   final _uuid = const Uuid();
-  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
-  InventoryProvider(this._repository) {
-    _listenToConnectivity();
-  }
-
-  void _listenToConnectivity() {
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
-      List<ConnectivityResult> results,
-    ) {
-      final online = results.isNotEmpty && !results.contains(ConnectivityResult.none);
-      if (online != _isOnline) {
-        _isOnline = online;
-        notifyListeners();
-      }
-      if (online) {
-        debugPrint(
-          '🌐 Internet terdeteksi ($results). Mencoba sinkronisasi data pending...',
-        );
-        syncData();
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _connectivitySubscription?.cancel();
-    super.dispose();
-  }
-
-  bool _isOnline = true;
-  bool get isOnline => _isOnline;
+  InventoryProvider(this._repository);
 
   List<Supplier> _suppliers = [];
   List<Supplier> get suppliers => _suppliers;
@@ -58,17 +26,8 @@ class InventoryProvider extends ChangeNotifier {
   List<BarangKeluar> _barangKeluarHistory = [];
   List<BarangKeluar> get barangKeluarHistory => _barangKeluarHistory;
 
-  int _unsyncedCount = 0;
-  int get unsyncedCount => _unsyncedCount;
-
-  int _unsyncedBarangKeluarCount = 0;
-  int get unsyncedBarangKeluarCount => _unsyncedBarangKeluarCount;
-
   bool _isLoading = false;
   bool get isLoading => _isLoading;
-
-  bool _isSyncing = false;
-  bool get isSyncing => _isSyncing;
 
   // Summary Getters
   int get totalBarang => _barangs.length;
@@ -158,8 +117,6 @@ class InventoryProvider extends ChangeNotifier {
         _loadBarangs(),
         _loadHistory(),
         _loadBarangKeluarHistory(),
-        _updateUnsyncedCount(),
-        _updateUnsyncedBarangKeluarCount(),
       ]);
     } catch (e) {
       debugPrint('InventoryProvider: Error during initialization: $e');
@@ -178,19 +135,11 @@ class InventoryProvider extends ChangeNotifier {
   }
 
   Future<void> _loadHistory() async {
-    _history = await _repository.getPenerimaanHistoryLocal();
+    _history = await _repository.getPenerimaanHistory();
   }
 
   Future<void> _loadBarangKeluarHistory() async {
-    _barangKeluarHistory = await _repository.getBarangKeluarHistoryLocal();
-  }
-
-  Future<void> _updateUnsyncedCount() async {
-    _unsyncedCount = await _repository.getUnsyncedCount();
-  }
-
-  Future<void> _updateUnsyncedBarangKeluarCount() async {
-    _unsyncedBarangKeluarCount = await _repository.getUnsyncedBarangKeluarCount();
+    _barangKeluarHistory = await _repository.getBarangKeluarHistory();
   }
 
   Future<void> submitPenerimaan(PenerimaanBarang penerimaan) async {
@@ -198,7 +147,7 @@ class InventoryProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Generate UUID sebelum simpan & sync agar idempotency berfungsi
+      // Generate UUID sebelum submit agar idempotency berfungsi
       final receiptId = penerimaan.id ?? _uuid.v4();
       final penerimaanWithId = PenerimaanBarang(
         id: receiptId,
@@ -210,42 +159,16 @@ class InventoryProvider extends ChangeNotifier {
         details: penerimaan.details,
       );
 
-      // 1. SELALU simpan ke lokal dulu (Offline-First)
-      debugPrint('💾 Menyimpan data ke database lokal (Status: PENDING)...');
-      await _repository.savePenerimaanLocal(penerimaanWithId, forceSynced: false);
+      await _repository.submitPenerimaan(penerimaanWithId);
 
-      // Update UI history agar data langsung muncul di daftar
+      // Update history setelah berhasil disimpan ke server
       await _loadHistory();
-      await _updateUnsyncedCount();
+    } catch (e) {
+      debugPrint('❌ Error saat submit penerimaan: $e');
+      rethrow;
+    } finally {
       _isLoading = false;
       notifyListeners();
-
-      // 2. Coba kirim ke backend di background (Tanpa cek koneksi eksplisit)
-      debugPrint('🛰️ Mencoba sinkronisasi background...');
-      _backgroundSyncItem(penerimaanWithId);
-    } catch (e) {
-      debugPrint('❌ Error sistem saat simpan lokal: $e');
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  // Fungsi internal untuk mencoba sync satu item tanpa mengganggu alur UI utama
-  Future<void> _backgroundSyncItem(PenerimaanBarang penerimaan) async {
-    try {
-      // Repository syncPenerimaan sudah memiliki timeout internal di Dio (ApiClient)
-      await _repository.syncPenerimaan(penerimaan);
-      debugPrint('✅ Background Sync Berhasil: ${penerimaan.noTerima}');
-
-      // Update data lokal jika berhasil
-      await _loadHistory();
-      await _updateUnsyncedCount();
-      notifyListeners();
-    } catch (e) {
-      debugPrint(
-        'ℹ️ Background Sync Tertunda (Offline/Server Error): ${penerimaan.noTerima}',
-      );
-      // Tidak perlu throw, data sudah aman di lokal dengan status 0
     }
   }
 
@@ -263,83 +186,16 @@ class InventoryProvider extends ChangeNotifier {
         details: barangKeluar.details,
       );
 
-      await _repository.saveBarangKeluarLocal(barangKeluarWithId, forceSynced: false);
+      await _repository.submitBarangKeluar(barangKeluarWithId);
 
       await _loadBarangKeluarHistory();
-      await _updateUnsyncedBarangKeluarCount();
-      _isLoading = false;
-      notifyListeners();
-
-      _backgroundSyncBarangKeluar(barangKeluarWithId);
     } catch (e) {
-      debugPrint('Error saving barang keluar lokal: $e');
+      debugPrint('❌ Error saat submit barang keluar: $e');
+      rethrow;
+    } finally {
       _isLoading = false;
       notifyListeners();
     }
-  }
-
-  Future<void> _backgroundSyncBarangKeluar(BarangKeluar barangKeluar) async {
-    try {
-      await _repository.syncBarangKeluar(barangKeluar);
-      debugPrint('Background Sync Barang Keluar Berhasil: ${barangKeluar.noKeluar}');
-      await _loadBarangKeluarHistory();
-      await _updateUnsyncedBarangKeluarCount();
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Background Sync Barang Keluar Tertunda: ${barangKeluar.noKeluar}');
-    }
-  }
-
-  Future<void> syncData() async {
-    if (_isSyncing) return;
-
-    await _loadHistory();
-    await _loadBarangKeluarHistory();
-    final unsyncedItems = _history.where((e) => e.isSynced == 0).toList();
-    final unsyncedBarangKeluar = _barangKeluarHistory.where((e) => e.isSynced == 0).toList();
-
-    if (unsyncedItems.isEmpty) {
-      debugPrint('✅ Tidak ada data pending.');
-      return;
-    }
-
-    final totalUnsynced = unsyncedItems.length + unsyncedBarangKeluar.length;
-    debugPrint(
-      '🚀 Sinkronisasi masal dimulai ($totalUnsynced data)...',
-    );
-    _isSyncing = true;
-    notifyListeners();
-
-    int successCount = 0;
-    for (var item in unsyncedItems) {
-      try {
-        await _repository.syncPenerimaan(item);
-        successCount++;
-        debugPrint('✔️ Berhasil: ${item.noTerima}');
-      } catch (e) {
-        debugPrint('❌ Gagal: ${item.noTerima}. Akan dicoba lagi nanti.');
-      }
-    }
-
-    for (var item in unsyncedBarangKeluar) {
-      try {
-        await _repository.syncBarangKeluar(item);
-        successCount++;
-        debugPrint('✔️ Berhasil sync barang keluar: ${item.noKeluar}');
-      } catch (e) {
-        debugPrint('❌ Gagal sync barang keluar: ${item.noKeluar}');
-      }
-    }
-
-    if (successCount > 0) {
-      await _loadHistory();
-      await _loadBarangKeluarHistory();
-      await _updateUnsyncedCount();
-      await _updateUnsyncedBarangKeluarCount();
-    }
-
-    _isSyncing = false;
-    notifyListeners();
   }
 
   Future<void> verifyPenerimaan(PenerimaanBarang penerimaan, {String? catatan}) async {

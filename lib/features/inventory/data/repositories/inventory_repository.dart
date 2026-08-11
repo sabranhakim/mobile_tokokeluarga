@@ -9,18 +9,13 @@ abstract class InventoryRepository {
   Future<List<Barang>> getBarangs();
 
   // Penerimaan
-  Future<void> savePenerimaanLocal(PenerimaanBarang penerimaan, {bool forceSynced = false});
-  Future<List<PenerimaanBarang>> getPenerimaanHistoryLocal();
-  Future<void> syncPenerimaan(PenerimaanBarang penerimaan);
-  Future<int> getUnsyncedCount();
+  Future<List<PenerimaanBarang>> getPenerimaanHistory();
+  Future<void> submitPenerimaan(PenerimaanBarang penerimaan);
 
   // Verifikasi
-  Future<void> verifyPenerimaanLocal(String id, {String? catatan});
   Future<void> verifyPenerimaan(PenerimaanBarang penerimaan, {String? catatan});
 
   // Barang Keluar
-  Future<void> saveBarangKeluarLocal(BarangKeluar barangKeluar, {bool forceSynced = false});
-  Future<List<BarangKeluar>> getBarangKeluarHistoryLocal();
-  Future<void> syncBarangKeluar(BarangKeluar barangKeluar);
-  Future<int> getUnsyncedBarangKeluarCount();
+  Future<List<BarangKeluar>> getBarangKeluarHistory();
+  Future<void> submitBarangKeluar(BarangKeluar barangKeluar);
 }

@@ -470,7 +470,19 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
       details: details,
     );
 
-    await provider.submitPenerimaan(penerimaan);
+    try {
+      await provider.submitPenerimaan(penerimaan);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Gagal terhubung ke server. Data tidak tersimpan.'),
+            backgroundColor: colorError,
+          ),
+        );
+      }
+      return;
+    }
 
     if (mounted) {
       Navigator.popUntil(context, (route) => route.isFirst);

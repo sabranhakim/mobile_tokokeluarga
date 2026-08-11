@@ -56,11 +56,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         title: const Text('Dashboard GrosirKue'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.sync),
-            tooltip: 'Sinkronisasi Data',
-            onPressed: () => context.read<InventoryProvider>().syncData(),
-          ),
-          IconButton(
             icon: const Icon(Icons.logout_rounded),
             tooltip: 'Keluar',
             onPressed: _showLogoutDialog,
