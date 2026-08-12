@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'detail_penerimaan_model.dart';
 
 class PenerimaanBarang {
-  final String? id; // UUID String
+  final String? id; // id_penerimaan_barang (integer dari server)
   final String? noTerima;
   final String supplierId;
   final String supplierNama; // Optional, untuk mempermudah tampilan offline
@@ -44,7 +44,7 @@ class PenerimaanBarang {
     }
 
     return PenerimaanBarang(
-      id: json['id']?.toString(),
+      id: json['id_penerimaan_barang']?.toString(),
       noTerima: json['no_terima'],
       supplierId: json['supplier_id'].toString(),
       supplierNama: json['supplier_nama'] ?? supplier?['nama_supplier'] ?? '',
@@ -62,7 +62,7 @@ class PenerimaanBarang {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
+      'id_penerimaan_barang': id,
       'no_terima': noTerima,
       'supplier_id': supplierId,
       'supplier_nama': supplierNama,

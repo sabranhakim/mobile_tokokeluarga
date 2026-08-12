@@ -13,7 +13,7 @@ class Supplier {
 
   factory Supplier.fromJson(Map<String, dynamic> json) {
     return Supplier(
-      id: json['id'].toString(),
+      id: json['id_supplier'].toString(),
       namaSupplier: json['nama_supplier'],
       alamat: json['alamat'],
       noTelp: json['no_telp'],
@@ -22,7 +22,7 @@ class Supplier {
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
+      'id_supplier': id,
       'nama_supplier': namaSupplier,
       'alamat': alamat,
       'no_telp': noTelp,

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
 import '../../data/models/barang_model.dart';
 import '../../data/models/barang_keluar_model.dart';
 import '../../data/models/supplier_model.dart';
@@ -10,7 +9,6 @@ import 'package:intl/intl.dart';
 
 class InventoryProvider extends ChangeNotifier {
   final InventoryRepository _repository;
-  final _uuid = const Uuid();
 
   InventoryProvider(this._repository);
 
@@ -147,19 +145,7 @@ class InventoryProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Generate UUID sebelum submit agar idempotency berfungsi
-      final receiptId = penerimaan.id ?? _uuid.v4();
-      final penerimaanWithId = PenerimaanBarang(
-        id: receiptId,
-        noTerima: penerimaan.noTerima,
-        supplierId: penerimaan.supplierId,
-        supplierNama: penerimaan.supplierNama,
-        tglTerima: penerimaan.tglTerima,
-        fotoBonPaths: penerimaan.fotoBonPaths,
-        details: penerimaan.details,
-      );
-
-      await _repository.submitPenerimaan(penerimaanWithId);
+      await _repository.submitPenerimaan(penerimaan);
 
       // Update history setelah berhasil disimpan ke server
       await _loadHistory();
@@ -177,16 +163,7 @@ class InventoryProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final id = barangKeluar.id ?? _uuid.v4();
-      final barangKeluarWithId = BarangKeluar(
-        id: id,
-        noKeluar: barangKeluar.noKeluar,
-        tglKeluar: barangKeluar.tglKeluar,
-        keterangan: barangKeluar.keterangan,
-        details: barangKeluar.details,
-      );
-
-      await _repository.submitBarangKeluar(barangKeluarWithId);
+      await _repository.submitBarangKeluar(barangKeluar);
 
       await _loadBarangKeluarHistory();
     } catch (e) {

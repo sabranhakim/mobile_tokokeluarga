@@ -2,7 +2,6 @@ import 'dart:developer' as developer;
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:uuid/uuid.dart';
 import '../../../../core/api_client.dart';
 import '../models/barang_model.dart';
 import '../models/barang_keluar_model.dart';
@@ -13,7 +12,6 @@ import 'package:intl/intl.dart';
 
 class InventoryRepositoryImpl implements InventoryRepository {
   final ApiClient _apiClient = ApiClient.instance;
-  final _uuid = const Uuid();
 
   @override
   Future<List<Supplier>> getSuppliers() async {
@@ -48,7 +46,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
       if (validPaths.isNotEmpty) {
         // With photos → kirim sebagai FormData (multipart)
         final formData = FormData.fromMap({
-          'id': penerimaan.id,
           'no_terima': penerimaan.noTerima,
           'supplier_id': penerimaan.supplierId,
           'tgl_terima': DateFormat('yyyy-MM-dd').format(penerimaan.tglTerima),
@@ -57,7 +54,6 @@ class InventoryRepositoryImpl implements InventoryRepository {
         for (int i = 0; i < penerimaan.details.length; i++) {
           final detail = penerimaan.details[i];
           formData.fields.addAll([
-            MapEntry('items[$i][id]', detail.id ?? _uuid.v4()),
             MapEntry('items[$i][barang_id]', detail.barangId),
             MapEntry('items[$i][jumlah]', detail.jumlah.toString()),
             if (detail.batchNumber != null)
@@ -98,14 +94,12 @@ class InventoryRepositoryImpl implements InventoryRepository {
       } else {
         // Without photo → kirim sebagai JSON biasa
         final body = {
-          'id': penerimaan.id,
           'no_terima': penerimaan.noTerima,
           'supplier_id': penerimaan.supplierId,
           'tgl_terima': DateFormat('yyyy-MM-dd').format(penerimaan.tglTerima),
           'items': penerimaan.details.asMap().entries.map((entry) {
             final detail = entry.value;
             return {
-              'id': detail.id ?? _uuid.v4(),
               'barang_id': detail.barangId,
               'jumlah': detail.jumlah,
               if (detail.batchNumber != null)
@@ -164,14 +158,12 @@ class InventoryRepositoryImpl implements InventoryRepository {
   Future<void> submitBarangKeluar(BarangKeluar barangKeluar) async {
     try {
       final body = {
-        'id': barangKeluar.id,
         'tgl_keluar': DateFormat('yyyy-MM-dd').format(barangKeluar.tglKeluar),
         'jenis_keluar': barangKeluar.jenisKeluar ?? 'penjualan',
         'keterangan': barangKeluar.keterangan,
         'items': barangKeluar.details.asMap().entries.map((entry) {
           final detail = entry.value;
           return {
-            'id': detail.id ?? _uuid.v4(),
             'barang_id': detail.barangId,
             'jumlah': detail.jumlah,
           };

@@ -19,7 +19,7 @@ class BarangStok {
 
   factory BarangStok.fromJson(Map<String, dynamic> json) {
     return BarangStok(
-      id: json['id'].toString(),
+      id: json['id_barang_stok'].toString(),
       barangId: json['barang_id'].toString(),
       batchNumber: json['batch_number'],
       stok: json['stok'] ?? 0,
@@ -33,7 +33,7 @@ class BarangStok {
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
+      'id_barang_stok': id,
       'barang_id': barangId,
       'batch_number': batchNumber,
       'stok': stok,
@@ -74,7 +74,7 @@ class Barang {
         [];
 
     return Barang(
-      id: json['id'].toString(),
+      id: json['id_barang'].toString(),
       kodeBarang: json['kode_barang'],
       namaBarang: json['nama_barang'],
       satuan: json['satuan'],
@@ -88,7 +88,7 @@ class Barang {
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
+      'id_barang': id,
       'kode_barang': kodeBarang,
       'nama_barang': namaBarang,
       'satuan': satuan,

@@ -23,7 +23,7 @@ class BarangKeluar {
     final details = json['details'] ?? json['detail_barang_keluars'] as List?;
 
     return BarangKeluar(
-      id: json['id']?.toString(),
+      id: json['id_barang_keluar']?.toString(),
       noKeluar: json['no_keluar'],
       userId: json['user_id'],
       tglKeluar: DateTime.parse(json['tgl_keluar']),
@@ -35,7 +35,7 @@ class BarangKeluar {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
+      'id_barang_keluar': id,
       'no_keluar': noKeluar,
       'user_id': userId,
       'tgl_keluar': tglKeluar.toIso8601String(),

@@ -21,7 +21,7 @@ class DetailPenerimaan {
     final barang = json['barang'] as Map<String, dynamic>?;
 
     return DetailPenerimaan(
-      id: json['id']?.toString(),
+      id: json['id_detail_penerimaan']?.toString(),
       penerimaanBarangId: json['penerimaan_barang_id']?.toString(),
       barangId: json['barang_id'].toString(),
       barangNama: json['barang_nama'] ?? barang?['nama_barang'] ?? '',
@@ -33,7 +33,7 @@ class DetailPenerimaan {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
+      'id_detail_penerimaan': id,
       'penerimaan_barang_id': penerimaanBarangId,
       'barang_id': barangId,
       'barang_nama': barangNama,
