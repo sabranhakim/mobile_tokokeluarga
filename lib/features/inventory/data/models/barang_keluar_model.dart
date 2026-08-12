@@ -20,7 +20,7 @@ class BarangKeluar {
   });
 
   factory BarangKeluar.fromJson(Map<String, dynamic> json) {
-    final details = json['details'] ?? json['detail_barang_keluars'] as List?;
+    final details = (json['details'] ?? json['detail_barang_keluars']) as List?;
 
     return BarangKeluar(
       id: json['id_barang_keluar']?.toString(),
