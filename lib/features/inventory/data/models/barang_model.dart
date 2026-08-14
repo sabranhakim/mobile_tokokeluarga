@@ -53,6 +53,7 @@ class Barang {
   final int stok;
   final int stokMinimal;
   final int? hargaBeli;
+  final int? hargaJual;
   final List<BarangStok> barangStoks;
 
   Barang({
@@ -64,6 +65,7 @@ class Barang {
     required this.stok,
     this.stokMinimal = 10,
     this.hargaBeli,
+    this.hargaJual,
     this.barangStoks = const [],
   });
 
@@ -82,6 +84,7 @@ class Barang {
       stok: json['stok'] ?? 0,
       stokMinimal: json['stok_minimal'] ?? 10,
       hargaBeli: json['harga_beli'],
+      hargaJual: json['harga_jual'],
       barangStoks: stoks,
     );
   }
@@ -96,6 +99,7 @@ class Barang {
       'stok': stok,
       'stok_minimal': stokMinimal,
       'harga_beli': hargaBeli,
+      'harga_jual': hargaJual,
       'barang_stoks': barangStoks.map((e) => e.toJson()).toList(),
     };
   }

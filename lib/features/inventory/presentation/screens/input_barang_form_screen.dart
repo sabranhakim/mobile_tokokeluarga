@@ -109,6 +109,22 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
+  String _formatRupiah(num value) {
+    final formatted = NumberFormat('#,##0', 'en_US')
+        .format(value)
+        .replaceAll(',', '.');
+    return 'Rp $formatted';
+  }
+
+  int get _totalHargaMasuk {
+    var total = 0;
+    for (final item in _selectedItems) {
+      final harga = item.barang?.hargaBeli ?? 0;
+      total += item.jumlah * harga;
+    }
+    return total;
+  }
+
   List<DetailPenerimaan> _currentValidDetails() {
     return _selectedItems.where((e) => e.barang != null && e.jumlah > 0).map((
       e,
@@ -365,6 +381,20 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                             Text(
                               totalQty.toStringAsFixed(0),
                               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: colorPrimary),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Total Harga (Harga Beli)',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              _formatRupiah(_totalHargaMasuk),
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: const Color(0xFF047857)),
                             ),
                           ],
                         ),
@@ -871,6 +901,35 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                 ),
               ),
 
+              const SizedBox(height: 16),
+
+              // Total Harga Summary
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  border: Border.all(color: const Color(0xFF6EE7B7)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Total Harga (Harga Beli)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    Text(
+                      _formatRupiah(_totalHargaMasuk),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18,
+                        color: Color(0xFF047857),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
               const SizedBox(height: 32),
               _buildDuplicateRiskIndicator(provider),
               const SizedBox(height: 16),
@@ -1061,7 +1120,7 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                             ),
                     onChanged: (val) => setState(() {
                       _selectedItems[index].barang = val;
-                      if (val != null && _selectedItems[index].batchNumber == null) {
+                      if (val != null) {
                         _selectedItems[index].batchNumber = 'BATCH-${val.kodeBarang}-${DateFormat('yyyyMMdd').format(_selectedDate)}';
                       }
                     }),
@@ -1170,52 +1229,69 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              SizedBox(
-                width: 65,
-                child: TextFormField(
-                  initialValue:
-                      item.jumlah > 0 ? item.jumlah.toString() : '',
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 16,
-                    color: Color(0xFF00236F),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 65,
+                    child: TextFormField(
+                      initialValue:
+                          item.jumlah > 0 ? item.jumlah.toString() : '',
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                        color: Color(0xFF00236F),
+                      ),
+                      textAlign: TextAlign.center,
+                      decoration: InputDecoration(
+                        hintText: 'Qty',
+                        hintStyle: TextStyle(
+                          fontSize: 12,
+                          color: colorPrimary.withValues(alpha: 0.4),
+                          fontWeight: FontWeight.normal,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 10,
+                        ),
+                        isDense: true,
+                        errorStyle: const TextStyle(height: 0),
+                        fillColor: Colors.white,
+                        filled: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(
+                            color: colorPrimary.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: colorOutlineVariant),
+                        ),
+                      ),
+                      onChanged: (val) {
+                        setState(() {
+                          item.jumlah = int.tryParse(val) ?? 0;
+                        });
+                      },
+                      validator:
+                          (val) => (int.tryParse(val ?? '') ?? 0) <= 0 ? '' : null,
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                  decoration: InputDecoration(
-                    hintText: 'Qty',
-                    hintStyle: TextStyle(
-                      fontSize: 12,
-                      color: colorPrimary.withValues(alpha: 0.4),
-                      fontWeight: FontWeight.normal,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 10,
-                    ),
-                    isDense: true,
-                    errorStyle: const TextStyle(height: 0),
-                    fillColor: Colors.white,
-                    filled: true,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(
-                        color: colorPrimary.withValues(alpha: 0.3),
+                  if (currentBarang != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: Text(
+                        currentBarang.satuan,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF6B7280),
+                        ),
                       ),
                     ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: colorOutlineVariant),
-                    ),
-                  ),
-                  onChanged: (val) {
-                    setState(() {
-                      item.jumlah = int.tryParse(val) ?? 0;
-                    });
-                  },
-                  validator:
-                      (val) => (int.tryParse(val ?? '') ?? 0) <= 0 ? '' : null,
-                ),
+                ],
               ),
               SizedBox(
                 width: 36,
@@ -1240,12 +1316,23 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
               Expanded(
                 child: TextFormField(
                   initialValue: item.batchNumber ?? '',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  readOnly: true,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: item.batchNumber != null
+                        ? const Color(0xFF00236F)
+                        : colorOutlineVariant,
+                    fontStyle: item.batchNumber == null
+                        ? FontStyle.italic
+                        : FontStyle.normal,
+                  ),
                   decoration: InputDecoration(
-                    hintText: 'Batch No (opsional)',
+                    hintText: 'Batch otomatis',
                     hintStyle: TextStyle(
                       fontSize: 13,
                       color: colorOutlineVariant,
+                      fontStyle: FontStyle.italic,
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 10,
@@ -1254,6 +1341,13 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                     isDense: true,
                     filled: true,
                     fillColor: const Color(0xFFF8F9FF),
+                    suffixIcon: item.batchNumber != null
+                        ? const Icon(
+                            Icons.check_circle_rounded,
+                            size: 18,
+                            color: Color(0xFF10B981),
+                          )
+                        : null,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide(color: colorOutlineVariant),
@@ -1267,11 +1361,6 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                       borderSide: BorderSide(color: colorSecondary),
                     ),
                   ),
-                  onChanged: (val) {
-                    setState(() {
-                      item.batchNumber = val.isEmpty ? null : val;
-                    });
-                  },
                 ),
               ),
               const SizedBox(width: 8),

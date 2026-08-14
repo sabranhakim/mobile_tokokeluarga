@@ -88,6 +88,24 @@ class _BarangKeluarFormScreenState extends State<BarangKeluarFormScreen> {
     }
   }
 
+  String _formatRupiah(num value) {
+    final formatted = NumberFormat('#,##0', 'en_US')
+        .format(value)
+        .replaceAll(',', '.');
+    return 'Rp $formatted';
+  }
+
+  int get _totalHargaKeluar {
+    if (_jenisKeluar != 'penjualan') return 0;
+
+    var total = 0;
+    for (final item in _selectedItems) {
+      final harga = item.barang?.hargaJual ?? 0;
+      total += item.jumlah * harga;
+    }
+    return total;
+  }
+
   List<DetailBarangKeluar> _currentValidDetails() {    return _selectedItems.where((e) => e.barang != null && e.jumlah > 0).map((e) {
       return DetailBarangKeluar(
         barangId: e.barang!.id,
@@ -205,6 +223,19 @@ class _BarangKeluarFormScreenState extends State<BarangKeluarFormScreen> {
                             Text(totalQty.toStringAsFixed(0), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: colorPrimary)),
                           ],
                         ),
+                        if (_jenisKeluar == 'penjualan') ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Total Harga Penjualan', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                              Text(
+                                _formatRupiah(_totalHargaKeluar),
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF0058BE)),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -533,6 +564,57 @@ class _BarangKeluarFormScreenState extends State<BarangKeluarFormScreen> {
                 ),
               ),
 
+              const SizedBox(height: 16),
+
+              // Total Harga Summary (hanya untuk penjualan)
+              if (_jenisKeluar == 'penjualan')
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF4FF),
+                    border: Border.all(color: const Color(0xFF0058BE).withValues(alpha: 0.4)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Total Harga Penjualan',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      Text(
+                        _formatRupiah(_totalHargaKeluar),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 18,
+                          color: Color(0xFF0058BE),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8F9FF),
+                    border: Border.all(color: colorOutlineVariant),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 18, color: colorOnSurfaceVariant),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Estimasi harga penjualan hanya ditampilkan untuk jenis Penjualan.',
+                          style: TextStyle(fontSize: 12, color: Color(0xFF444651)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               const SizedBox(height: 32),
 
               ElevatedButton.icon(
@@ -686,31 +768,48 @@ class _BarangKeluarFormScreenState extends State<BarangKeluarFormScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          SizedBox(
-            width: 65,
-            child: TextFormField(
-              initialValue: item.jumlah > 0 ? item.jumlah.toString() : '',
-              keyboardType: TextInputType.number,
-              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF00236F)),
-              textAlign: TextAlign.center,
-              decoration: InputDecoration(
-                hintText: 'Qty',
-                hintStyle: TextStyle(fontSize: 12, color: colorPrimary.withValues(alpha: 0.4), fontWeight: FontWeight.normal),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-                isDense: true,
-                errorStyle: const TextStyle(height: 0),
-                fillColor: Colors.white,
-                filled: true,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: colorPrimary.withValues(alpha: 0.3))),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: colorOutlineVariant)),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 65,
+                child: TextFormField(
+                  initialValue: item.jumlah > 0 ? item.jumlah.toString() : '',
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF00236F)),
+                  textAlign: TextAlign.center,
+                  decoration: InputDecoration(
+                    hintText: 'Qty',
+                    hintStyle: TextStyle(fontSize: 12, color: colorPrimary.withValues(alpha: 0.4), fontWeight: FontWeight.normal),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                    isDense: true,
+                    errorStyle: const TextStyle(height: 0),
+                    fillColor: Colors.white,
+                    filled: true,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: colorPrimary.withValues(alpha: 0.3))),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: colorOutlineVariant)),
+                  ),
+                  onChanged: (val) {
+                    setState(() {
+                      item.jumlah = int.tryParse(val) ?? 0;
+                    });
+                  },
+                  validator: (val) => (int.tryParse(val ?? '') ?? 0) <= 0 ? '' : null,
+                ),
               ),
-              onChanged: (val) {
-                setState(() {
-                  item.jumlah = int.tryParse(val) ?? 0;
-                });
-              },
-              validator: (val) => (int.tryParse(val ?? '') ?? 0) <= 0 ? '' : null,
-            ),
+              if (currentBarang != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Text(
+                    currentBarang.satuan,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(width: 4),
           Column(
