@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import '../../../../core/time_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/inventory_provider.dart';
-import 'package:fl_chart/fl_chart.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -12,8 +13,6 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  String _selectedFilter = 'Minggu';
-
   @override
   void initState() {
     super.initState();
@@ -52,55 +51,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dashboard GrosirKue'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            tooltip: 'Keluar',
-            onPressed: _showLogoutDialog,
-          ),
-        ],
-      ),
-      body: Consumer<InventoryProvider>(
-        builder: (context, provider, child) {
-          final colorScheme = Theme.of(context).colorScheme;
-          if (provider.isLoading) {
+      backgroundColor: const Color(0xFFF7F8FA),
+      body: Consumer2<AuthProvider, InventoryProvider>(
+        builder: (context, auth, provider, child) {
+          if (provider.isLoading &&
+              provider.barangs.isEmpty &&
+              provider.history.isEmpty &&
+              provider.barangKeluarHistory.isEmpty) {
             return const Center(child: CircularProgressIndicator());
           }
+
           return RefreshIndicator(
             onRefresh: () => provider.init(),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20.0,
+                vertical: 16.0,
+              ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Bento Grid
-                  _buildBentoGrid(provider, colorScheme),
-
-                  const SizedBox(height: 28),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Flexible(
-                        child: Text(
-                          'Receiving Trends',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      _buildFilterButtons(),
-                    ],
+                  _buildHeader(auth),
+                  const SizedBox(height: 20),
+                  _buildSummaryGrid(provider),
+                  const SizedBox(height: 22),
+                  BarChartCard(
+                    title: 'Penerimaan barang',
+                    subtitle: 'Aktivitas penerimaan terkini',
+                    weekData: provider.getChartData('Minggu'),
+                    monthData: provider.getChartData('Bulan'),
+                    barColor: const Color(0xFF8C9BAE),
                   ),
                   const SizedBox(height: 16),
-
-                  // Chart Section
-                  _buildChart(provider.getChartData(_selectedFilter)),
-
-                  const SizedBox(height: 40),
+                  BarChartCard(
+                    title: 'Barang keluar',
+                    subtitle: 'Aktivitas pengeluaran barang terkini',
+                    weekData: provider.getBarangKeluarChartData('Minggu'),
+                    monthData: provider.getBarangKeluarChartData('Bulan'),
+                    barColor: const Color(0xFF5A6B7C),
+                  ),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -110,312 +101,506 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  
+  Widget _buildHeader(AuthProvider auth) {
+    final now = TimeService.instance.now();
+    final userName = auth.user?.name ?? 'Nadia';
 
-  Widget _buildBentoGrid(InventoryProvider provider, ColorScheme colors) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Row 1: Total Barang (2x) + Stok Kritis (1x)
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Expanded(flex: 2, child: _bentoCard(
-              icon: Icons.category_rounded,
-              color: colors.primary,
-              title: 'Total Barang',
-              value: provider.totalBarang.toString(),
-              height: 110,
-            )),
-            const SizedBox(width: 12),
-            Expanded(child: _bentoCard(
-              icon: Icons.error_rounded,
-              color: colors.error,
-              title: 'Stok Kritis',
-              value: provider.stokKritis.toString(),
-              height: 110,
-              subtitle: 'Habis',
-            )),
+            const Text(
+              'TOKO KELUARGA',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF7A8492),
+                letterSpacing: 0.8,
+              ),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFE2E6EA)),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.logout_rounded, size: 20),
+                color: const Color(0xFF2C3540),
+                onPressed: _showLogoutDialog,
+              ),
+            ),
           ],
         ),
-        const SizedBox(height: 12),
-
-        // Row 2: Stok Rendah (1x) + Total Stok (2x)
-        Row(
-          children: [
-            Expanded(child: _bentoCard(
-              icon: Icons.warning_amber_rounded,
-              color: const Color(0xFF9A6700),
-              title: 'Stok Rendah',
-              value: provider.stokRendah.toString(),
-              height: 110,
-            )),
-            const SizedBox(width: 12),
-            Expanded(flex: 2, child: _bentoCard(
-              icon: Icons.inventory_2,
-              color: colors.secondary,
-              title: 'Total Stok',
-              value: provider.totalStok.toString(),
-              height: 110,
-            )),
-          ],
+        const Text(
+          'Dashboard',
+          style: TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF1E252D),
+          ),
         ),
-        const SizedBox(height: 12),
-
-        // Row 3: Hari Ini (1x) + Supplier (1x) + Total Penerimaan (1x)
+        const SizedBox(height: 20),
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Expanded(child: _bentoCard(
-              icon: Icons.today,
-              color: colors.secondary,
-              title: 'Hari Ini',
-              value: provider.penerimaanHariIni.toString(),
-              height: 110,
-            )),
-            const SizedBox(width: 12),
-            Expanded(child: _bentoCard(
-              icon: Icons.business,
-              color: const Color(0xFF004395),
-              title: 'Supplier',
-              value: provider.totalSupplier.toString(),
-              height: 110,
-            )),
-            const SizedBox(width: 12),
-            Expanded(child: _bentoCard(
-              icon: Icons.receipt_long,
-              color: colors.primary,
-              title: 'Penerimaan',
-              value: provider.totalPenerimaan.toString(),
-              height: 110,
-            )),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Selamat pagi,',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF7A8492)),
+                ),
+                Row(
+                  children: [
+                    Text(
+                      userName,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1E252D),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.star_rounded,
+                      size: 16,
+                      color: Color(0xFF1E252D),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAEBED),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                _formatDate(now),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF505A69),
+                ),
+              ),
+            ),
           ],
         ),
       ],
     );
   }
 
-  Widget _bentoCard({
+  Widget _buildSummaryGrid(InventoryProvider provider) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: _buildSummaryCard(
+                icon: Icons.inventory_2_outlined,
+                title: provider.totalBarang.toString(),
+                subtitle: 'Stok Barang',
+                caption: '${provider.stokRendah} stok rendah',
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 1,
+              child: _buildSummaryCard(
+                icon: Icons.move_to_inbox_outlined,
+                title: provider.penerimaanBulanIni.toString(),
+                subtitle: 'Penerimaan bulan ini',
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 1,
+              child: _buildSummaryCard(
+                icon: Icons.outbox_outlined,
+                title: provider.barangKeluarBulanIni.toString(),
+                subtitle: 'Barang keluar bulan ini',
+                hasBadge: provider.barangKeluarHariIni > 0,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              flex: 1,
+              child: _buildSummaryCard(
+                icon: Icons.warning_amber_rounded,
+                title: provider.stokKritis.toString(),
+                subtitle: 'Stok kritis',
+                hasBadge: provider.stokKritis > 0,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 2,
+              child: _buildSummaryCard(
+                icon: Icons.shopping_bag_outlined,
+                title: _formatCurrency(provider.totalStok),
+                subtitle: 'Total Stok',
+                caption: '${provider.penerimaanHariIni} masuk hari ini',
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 1,
+              child: _buildSummaryCard(
+                icon: Icons.add,
+                title: provider.penerimaanHariIni.toString(),
+                subtitle: 'Masuk hari ini',
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSummaryCard({
     required IconData icon,
-    required Color color,
     required String title,
-    required String value,
-    double height = 110,
-    String? subtitle,
+    required String subtitle,
+    String? caption,
+    bool hasBadge = false,
   }) {
     return Container(
-      height: height,
+      padding: const EdgeInsets.all(12),
+      height: 132,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.12)),
+        color: const Color(0xFFE9EBEF),
+        borderRadius: BorderRadius.circular(18),
       ),
-      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
+                width: 32,
+                height: 32,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: color, size: 16),
+                child: Icon(icon, size: 16, color: const Color(0xFF2C3540)),
               ),
-              const Spacer(),
-              if (subtitle != null)
+              if (hasBadge)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                      color: color.withValues(alpha: 0.7),
-                    ),
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF505A69),
+                    shape: BoxShape.circle,
                   ),
                 ),
             ],
           ),
           const Spacer(),
           Text(
-            value,
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-              color: color,
-              height: 1.1,
+            title,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF1E252D),
             ),
           ),
           const SizedBox(height: 2),
           Text(
-            title,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: color.withValues(alpha: 0.7),
-            ),
-            maxLines: 1,
+            subtitle,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 10,
+              color: Color(0xFF656F7D),
+              height: 1.2,
+            ),
+          ),
+          if (caption != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              caption,
+              style: const TextStyle(fontSize: 9, color: Color(0xFF7D8795)),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _formatCurrency(int value) {
+    if (value >= 1000000) {
+      final result = (value / 1000000).toStringAsFixed(
+        value % 1000000 == 0 ? 0 : 1,
+      );
+      return 'Rp ${result}jt';
+    }
+    return 'Rp $value';
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'Mei',
+      'Jun',
+      'Jul',
+      'Agu',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Des',
+    ];
+
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+}
+
+class BarChartCard extends StatefulWidget {
+  final String title;
+  final String subtitle;
+  final Map<String, double> weekData;
+  final Map<String, double> monthData;
+  final Color barColor;
+
+  const BarChartCard({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.weekData,
+    required this.monthData,
+    required this.barColor,
+  });
+
+  @override
+  State<BarChartCard> createState() => _BarChartCardState();
+}
+
+class _BarChartCardState extends State<BarChartCard> {
+  int _selectedPeriodIndex = 0;
+  int? _selectedBarIndex;
+
+  Map<String, double> get _currentData =>
+      _selectedPeriodIndex == 0 ? widget.weekData : widget.monthData;
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = _currentData.entries.toList();
+    final values = entries.map((entry) => entry.value).toList();
+    final maxValue =
+        values.isEmpty ? 0.0 : values.reduce((a, b) => a > b ? a : b);
+    final effectiveMax = maxValue <= 0 ? 1.0 : maxValue;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFEFEFF2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E252D),
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    widget.subtitle,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF7A8492),
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAEBED),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    _buildToggleOption('Minggu', 0),
+                    _buildToggleOption('Bulan', 1),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 104,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: List.generate(entries.length, (index) {
+                final entry = entries[index];
+                return _buildBarPill(
+                  index: index,
+                  day: entry.key,
+                  value: entry.value,
+                  fillRatio: entry.value / effectiveMax,
+                );
+              }),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildFilterButtons() {
-    return SegmentedButton<String>(
-      segments: const [
-        ButtonSegment(
-          value: 'Minggu',
-          label: Text('Minggu'),
-          icon: Icon(Icons.view_week),
+  Widget _buildToggleOption(String label, int index) {
+    final bool isSelected = _selectedPeriodIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() {
+        _selectedPeriodIndex = index;
+        _selectedBarIndex = null;
+      }),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow:
+              isSelected
+                  ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                  : [],
         ),
-        ButtonSegment(
-          value: 'Bulan',
-          label: Text('Bulan'),
-          icon: Icon(Icons.calendar_month),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color:
+                isSelected ? const Color(0xFF1E252D) : const Color(0xFF7A8492),
+          ),
         ),
-      ],
-      selected: {_selectedFilter},
-      onSelectionChanged: (newSelection) {
-        setState(() => _selectedFilter = newSelection.first);
-      },
-      showSelectedIcon: false,
-      style: SegmentedButton.styleFrom(visualDensity: VisualDensity.compact),
+      ),
     );
   }
 
-  Widget _buildChart(Map<String, double> chartData) {
-    if (chartData.isEmpty) {
-      return Card(
-        child: Container(
-          height: 200,
-          alignment: Alignment.center,
-          child: const Text('Belum ada data visual'),
-        ),
-      );
-    }
-
-    final keys = chartData.keys.toList();
-    final values = chartData.values.toList();
-    final maxValue = values.reduce((a, b) => a > b ? a : b);
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 24, 24, 16),
-        child: SizedBox(
-          height: 250,
-          child: BarChart(
-            BarChartData(
-              alignment: BarChartAlignment.spaceAround,
-              maxY: maxValue == 0 ? 5 : maxValue + (maxValue * 0.2),
-              barTouchData: BarTouchData(
-                enabled: true,
-                touchTooltipData: BarTouchTooltipData(
-                  getTooltipColor: (_) => colorScheme.secondaryContainer,
-                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                    return BarTooltipItem(
-                      '${keys[groupIndex]}\n',
-                      TextStyle(
-                        color: colorScheme.onSecondaryContainer,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      children: [
-                        TextSpan(
-                          text: rod.toY.toInt().toString(),
-                          style: TextStyle(
-                            color: colorScheme.primary,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-              titlesData: FlTitlesData(
-                show: true,
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    getTitlesWidget: (value, meta) {
-                      int index = value.toInt();
-                      if (index >= 0 && index < keys.length) {
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: Text(
-                            keys[index],
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: colorScheme.outline,
-                              fontWeight: FontWeight.bold,
+  Widget _buildBarPill({
+    required int index,
+    required String day,
+    required double value,
+    required double fillRatio,
+  }) {
+    final bool isSelected = _selectedBarIndex == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedBarIndex = index),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.bottomCenter,
+                children: [
+                  if (isSelected)
+                    Positioned(
+                      top: -28,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E252D),
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.12),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
                             ),
-                          ),
-                        );
-                      }
-                      return const Text('');
-                    },
-                  ),
-                ),
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 30,
-                    getTitlesWidget: (value, meta) {
-                      return Text(
-                        value.toInt().toString(),
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: colorScheme.outline,
+                          ],
                         ),
-                      );
-                    },
+                        child: Text(
+                          value.toInt().toString(),
+                          style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  Container(
+                    width: 28,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEAEBED),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
-                ),
-                topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-              ),
-              gridData: FlGridData(
-                show: true,
-                drawVerticalLine: false,
-                getDrawingHorizontalLine:
-                    (value) => FlLine(
-                      color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-                      strokeWidth: 1,
-                    ),
-              ),
-              borderData: FlBorderData(show: false),
-              barGroups: List.generate(keys.length, (i) {
-                return BarChartGroupData(
-                  x: i,
-                  barRods: [
-                    BarChartRodData(
-                      toY: values[i],
-                      gradient: LinearGradient(
-                        colors: [colorScheme.primary, colorScheme.tertiary],
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                      ),
-                      width: 20,
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(6),
+                  FractionallySizedBox(
+                    heightFactor: fillRatio.clamp(0.0, 1.0),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      width: 28,
+                      decoration: BoxDecoration(
+                        color:
+                            isSelected
+                                ? widget.barColor.withValues(alpha: 0.95)
+                                : widget.barColor,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow:
+                            isSelected
+                                ? [
+                                  BoxShadow(
+                                    color: widget.barColor.withValues(
+                                      alpha: 0.25,
+                                    ),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ]
+                                : [],
                       ),
                     ),
-                  ],
-                );
-              }),
-            ),
+                  ),
+                ],
+              ),
           ),
+          const SizedBox(height: 5),
+          Text(
+            day,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF7A8492),
+            ),
+            ),
+          ],
         ),
       ),
     );

@@ -38,6 +38,44 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
+  Widget _buildNavItem(int index, IconData outlinedIcon, IconData filledIcon, String label) {
+    final isActive = _selectedIndex == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _onItemTapped(index),
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 32,
+              height: 2.5,
+              margin: const EdgeInsets.only(bottom: 6),
+              decoration: BoxDecoration(
+                color: isActive ? const Color(0xFF00236F) : Colors.transparent,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Icon(
+              isActive ? filledIcon : outlinedIcon,
+              size: 22,
+              color: isActive ? const Color(0xFF00236F) : Colors.black45,
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: isActive ? const Color(0xFF00236F) : Colors.black45,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -45,33 +83,24 @@ class _MainScreenState extends State<MainScreen> {
         index: _selectedIndex,
         children: _screens,
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: _onItemTapped,
-        backgroundColor: Colors.white,
-        indicatorColor: const Color(0xFFE5EEFF),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard, color: Color(0xFF00236F)),
-            label: 'Dashboard',
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: Colors.black12, width: 0.5)),
+        ),
+        child: SafeArea(
+          child: SizedBox(
+            height: 62,
+            child: Row(
+              children: [
+                _buildNavItem(0, Icons.dashboard_outlined, Icons.dashboard, 'Dashboard'),
+                _buildNavItem(1, Icons.add_box_outlined, Icons.add_box, 'Receive'),
+                _buildNavItem(2, Icons.output_outlined, Icons.output, 'Keluar'),
+                _buildNavItem(3, Icons.history_outlined, Icons.history, 'History'),
+              ],
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.add_box_outlined),
-            selectedIcon: Icon(Icons.add_box, color: Color(0xFF00236F)),
-            label: 'Receive',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.output_outlined),
-            selectedIcon: Icon(Icons.output, color: Color(0xFF00236F)),
-            label: 'Keluar',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.history_outlined),
-            selectedIcon: Icon(Icons.history, color: Color(0xFF00236F)),
-            label: 'History',
-          ),
-        ],
+        ),
       ),
     );
   }

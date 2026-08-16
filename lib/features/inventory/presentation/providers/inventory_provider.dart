@@ -39,70 +39,39 @@ class InventoryProvider extends ChangeNotifier {
           .length;
   int get totalSupplier => _suppliers.length;
   int get totalPenerimaan => _history.length;
+  int get totalBarangKeluar => _barangKeluarHistory.length;
 
   int get penerimaanHariIni {
     final now = TimeService.instance.now();
-    return _history
-        .where(
-          (e) =>
-              e.tglTerima.year == now.year &&
-              e.tglTerima.month == now.month &&
-              e.tglTerima.day == now.day,
-        )
-        .length;
+    return _countToday(_history, (item) => item.tglTerima, now);
+  }
+
+  int get penerimaanBulanIni {
+    final now = TimeService.instance.now();
+    return _countByMonth(_history, (item) => item.tglTerima, now);
+  }
+
+  int get barangKeluarHariIni {
+    final now = TimeService.instance.now();
+    return _countToday(_barangKeluarHistory, (item) => item.tglKeluar, now);
+  }
+
+  int get barangKeluarBulanIni {
+    final now = TimeService.instance.now();
+    return _countByMonth(_barangKeluarHistory, (item) => item.tglKeluar, now);
   }
 
   // Chart Logic
   Map<String, double> getChartData(String filter) {
-    final now = TimeService.instance.now();
-    Map<String, double> data = {};
+    return _buildChartData(_history, filter, (item) => item.tglTerima);
+  }
 
-    if (filter == 'Minggu') {
-      for (int i = 6; i >= 0; i--) {
-        final date = now.subtract(Duration(days: i));
-        final label = DateFormat('E').format(date);
-        final count =
-            _history
-                .where(
-                  (e) =>
-                      e.tglTerima.year == date.year &&
-                      e.tglTerima.month == date.month &&
-                      e.tglTerima.day == date.day,
-                )
-                .length;
-        data[label] = count.toDouble();
-      }
-    } else if (filter == 'Bulan') {
-      for (int i = 3; i >= 0; i--) {
-        final start = now.subtract(Duration(days: (i + 1) * 7));
-        final end = now.subtract(Duration(days: i * 7));
-        final label = 'W${4 - i}';
-        final count =
-            _history
-                .where(
-                  (e) =>
-                      e.tglTerima.isAfter(start) &&
-                      e.tglTerima.isBefore(end.add(const Duration(days: 1))),
-                )
-                .length;
-        data[label] = count.toDouble();
-      }
-    } else if (filter == 'Tahun') {
-      for (int i = 11; i >= 0; i--) {
-        final monthDate = DateTime(now.year, now.month - i, 1);
-        final label = DateFormat('MMM').format(monthDate);
-        final count =
-            _history
-                .where(
-                  (e) =>
-                      e.tglTerima.year == monthDate.year &&
-                      e.tglTerima.month == monthDate.month,
-                )
-                .length;
-        data[label] = count.toDouble();
-      }
-    }
-    return data;
+  Map<String, double> getBarangKeluarChartData(String filter) {
+    return _buildChartData(
+      _barangKeluarHistory,
+      filter,
+      (item) => item.tglKeluar,
+    );
   }
 
   Future<void> init() async {
@@ -175,7 +144,10 @@ class InventoryProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> verifyPenerimaan(PenerimaanBarang penerimaan, {String? catatan}) async {
+  Future<void> verifyPenerimaan(
+    PenerimaanBarang penerimaan, {
+    String? catatan,
+  }) async {
     _isLoading = true;
     notifyListeners();
 
@@ -190,5 +162,68 @@ class InventoryProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  int _countToday<T>(
+    List<T> items,
+    DateTime Function(T item) getDate,
+    DateTime now,
+  ) {
+    return items.where((item) {
+      final date = getDate(item);
+      return date.year == now.year &&
+          date.month == now.month &&
+          date.day == now.day;
+    }).length;
+  }
+
+  int _countByMonth<T>(
+    List<T> items,
+    DateTime Function(T item) getDate,
+    DateTime now,
+  ) {
+    return items.where((item) {
+      final date = getDate(item);
+      return date.year == now.year && date.month == now.month;
+    }).length;
+  }
+
+  Map<String, double> _buildChartData<T>(
+    List<T> items,
+    String filter,
+    DateTime Function(T item) getDate,
+  ) {
+    final now = TimeService.instance.now();
+    final Map<String, double> data = {};
+
+    if (filter == 'Minggu') {
+      for (int i = 6; i >= 0; i--) {
+        final date = now.subtract(Duration(days: i));
+        final label = DateFormat('E').format(date);
+        final count =
+            items.where((item) {
+              final itemDate = getDate(item);
+              return itemDate.year == date.year &&
+                  itemDate.month == date.month &&
+                  itemDate.day == date.day;
+            }).length;
+        data[label] = count.toDouble();
+      }
+    } else if (filter == 'Bulan') {
+      for (int i = 3; i >= 0; i--) {
+        final start = now.subtract(Duration(days: (i + 1) * 7));
+        final end = now.subtract(Duration(days: i * 7));
+        final label = 'W${4 - i}';
+        final count =
+            items.where((item) {
+              final itemDate = getDate(item);
+              return itemDate.isAfter(start) &&
+                  itemDate.isBefore(end.add(const Duration(days: 1)));
+            }).length;
+        data[label] = count.toDouble();
+      }
+    }
+
+    return data;
   }
 }
