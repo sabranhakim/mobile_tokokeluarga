@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/time_service.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
-import 'features/auth/presentation/screens/login_screen.dart';
+import 'features/auth/presentation/screens/splash_screen.dart';
 import 'features/inventory/data/repositories/inventory_repository_impl.dart';
 import 'features/inventory/presentation/providers/inventory_provider.dart';
-import 'features/inventory/presentation/screens/main_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -95,34 +94,7 @@ class MainApp extends StatelessWidget {
           labelStyle: const TextStyle(color: Color(0xFF444651), fontWeight: FontWeight.bold),
         ),
       ),
-      home: const AuthWrapper(),
-    );
-  }
-}
-
-class AuthWrapper extends StatefulWidget {
-  const AuthWrapper({super.key});
-
-  @override
-  State<AuthWrapper> createState() => _AuthWrapperState();
-}
-
-class _AuthWrapperState extends State<AuthWrapper> {
-  @override
-  void initState() {
-    super.initState();
-    context.read<AuthProvider>().checkLoginStatus();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<AuthProvider>(
-      builder: (context, auth, child) {
-        if (auth.isLoggedIn) {
-          return const MainScreen();
-        }
-        return const LoginScreen();
-      },
+      home: const SplashScreen(),
     );
   }
 }

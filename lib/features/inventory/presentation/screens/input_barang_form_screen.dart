@@ -10,6 +10,7 @@ import '../../data/models/barang_model.dart';
 import '../../data/models/supplier_model.dart';
 import '../../data/models/penerimaan_barang_model.dart';
 import '../../data/models/detail_penerimaan_model.dart';
+import 'transaction_success_screen.dart';
 
 class InputBarangFormScreen extends StatefulWidget {
   final List<String> photoPaths;
@@ -588,12 +589,24 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
     }
 
     if (mounted) {
-      Navigator.popUntil(context, (route) => route.isFirst);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Proses penyimpanan data selesai'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TransactionSuccessScreen(
+            type: TransactionType.penerimaan,
+            noTransaksi: penerimaan.noTerima,
+            tanggal: penerimaan.tglTerima,
+            pihakLabel: 'Supplier',
+            pihakValue: penerimaan.supplierNama,
+            items: details.map(
+              (d) => MapEntry(
+                d.barangNama,
+                d.jumlah.toStringAsFixed(0),
+              ),
+            ).toList(),
+            totalLabel: 'Total Harga Beli',
+            totalValue: _formatRupiah(_totalHargaMasuk),
+          ),
         ),
       );
     }

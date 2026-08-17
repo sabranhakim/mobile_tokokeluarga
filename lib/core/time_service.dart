@@ -24,7 +24,7 @@ class TimeService {
         final serverStr = response.data['data']['server_time'] as String;
         _serverTimezone = response.data['data']['timezone'] as String?;
 
-        _serverSnapshot = DateTime.parse(serverStr);
+        _serverSnapshot = DateTime.parse(serverStr).toLocal();
         _deviceSnapshot = DateTime.now();
 
         debugPrint('⏰ TimeService: server snapshot=$_serverSnapshot | timezone=$_serverTimezone');

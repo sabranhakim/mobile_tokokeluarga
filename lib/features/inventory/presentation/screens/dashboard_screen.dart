@@ -246,7 +246,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               flex: 2,
               child: _buildSummaryCard(
                 icon: Icons.shopping_bag_outlined,
-                title: _formatCurrency(provider.totalStok),
+                title: provider.totalStok.toString(),
                 subtitle: 'Total Stok',
                 caption: '${provider.penerimaanHariIni} masuk hari ini',
               ),
@@ -336,16 +336,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
     );
-  }
-
-  String _formatCurrency(int value) {
-    if (value >= 1000000) {
-      final result = (value / 1000000).toStringAsFixed(
-        value % 1000000 == 0 ? 0 : 1,
-      );
-      return 'Rp ${result}jt';
-    }
-    return 'Rp $value';
   }
 
   String _formatDate(DateTime date) {

@@ -8,6 +8,7 @@ import '../providers/inventory_provider.dart';
 import '../../data/models/barang_model.dart';
 import '../../data/models/barang_keluar_model.dart';
 import '../../data/models/detail_barang_keluar_model.dart';
+import 'transaction_success_screen.dart';
 
 class BarangKeluarFormScreen extends StatefulWidget {
   const BarangKeluarFormScreen({super.key, this.onSaved});
@@ -476,15 +477,34 @@ class _BarangKeluarFormScreenState extends State<BarangKeluarFormScreen> {
     }
 
     if (mounted) {
+      final totalQty = details.fold<double>(0, (sum, d) => sum + d.jumlah);
+      final isPenjualan = _jenisKeluar == 'penjualan';
+      final jenisLabel = _jenisKeluarLabel;
+      final totalValue = isPenjualan
+          ? _formatRupiah(_totalHargaKeluar)
+          : totalQty.toStringAsFixed(0);
+
       _resetForm();
       widget.onSaved?.call();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Barang keluar berhasil dicatat dan stok telah diperbarui',
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TransactionSuccessScreen(
+            type: TransactionType.barangKeluar,
+            tanggal: barangKeluar.tglKeluar,
+            pihakLabel: 'Jenis',
+            pihakValue: jenisLabel,
+            keterangan: barangKeluar.keterangan,
+            items: details.map(
+              (d) => MapEntry(
+                d.barangNama,
+                '${d.jumlah} ${d.barangSatuan ?? ''}'.trim(),
+              ),
+            ).toList(),
+            totalLabel: isPenjualan ? 'Total Harga Penjualan' : 'Total Jumlah Item',
+            totalValue: totalValue,
           ),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
         ),
       );
     }
@@ -566,16 +586,13 @@ class _BarangKeluarFormScreenState extends State<BarangKeluarFormScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFEBECEE),
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-                        onPressed: () => Navigator.pop(context),
+                    const Text(
+                      'TOKO KELUARGA',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF7A8492),
+                        letterSpacing: 0.8,
                       ),
                     ),
                     Container(

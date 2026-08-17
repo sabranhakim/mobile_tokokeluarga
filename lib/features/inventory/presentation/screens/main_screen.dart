@@ -94,9 +94,9 @@ class _MainScreenState extends State<MainScreen> {
             child: Row(
               children: [
                 _buildNavItem(0, Icons.dashboard_outlined, Icons.dashboard, 'Dashboard'),
-                _buildNavItem(1, Icons.add_box_outlined, Icons.add_box, 'Receive'),
+                _buildNavItem(1, Icons.add_box_outlined, Icons.add_box, 'Masuk'),
                 _buildNavItem(2, Icons.output_outlined, Icons.output, 'Keluar'),
-                _buildNavItem(3, Icons.history_outlined, Icons.history, 'History'),
+                _buildNavItem(3, Icons.history_outlined, Icons.history, 'Riwayat'),
               ],
             ),
           ),
