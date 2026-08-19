@@ -1454,15 +1454,6 @@ class _InputBarangFormScreenState extends State<InputBarangFormScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      'Qty',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: colorOnSurfaceVariant.withValues(alpha: 0.8),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
                     TextFormField(
                       initialValue:
                           item.jumlah > 0 ? item.jumlah.toString() : '',

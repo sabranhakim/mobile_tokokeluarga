@@ -39,7 +39,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 borderRadius: BorderRadius.circular(24),
               ),
               child: const Icon(
-                Icons.storefront_rounded,
+                Icons.store,
                 size: 46,
                 color: Color(0xFF00236F),
               ),
